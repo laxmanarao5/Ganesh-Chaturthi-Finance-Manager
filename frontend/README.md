@@ -14,7 +14,6 @@ written straight to the committee's Google Sheet, and the Sheet is read fresh wh
 | Users (admins) | Who may use it (Viewer / Editor / Admin) and who the Sheet is shared with, through the Drive API |
 
 Only emails on the Sheet's `Users` tab get in, with the same roles as the app. **Gifts in kind (amount 0) are never "not collected".**
-Demo mode (the "Try demo" button) runs the whole portal on made-up data in memory and never touches the real Sheet.
 
 ## How it stays in step with the app
 Both read and write the same Sheet in the same layout. The portal adds a row, or rewrites one row with `rev + 1`, a new hash and `updated_by`, and deleting keeps the row as a

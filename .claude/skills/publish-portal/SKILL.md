@@ -30,7 +30,7 @@ rm -rf ../docs && cp -r dist ../docs && touch ../docs/.nojekyll
 Never put anything else in `docs/`.
 
 ## 3. Check it locally (optional but quick)
-`docker compose run --rm --service-ports portal npm run dev`, open http://localhost:5173, use "Try demo". Stop only your own `frontend-portal-run-*` container.
+`docker compose run --rm --service-ports portal npm run dev`, open http://localhost:5173 (sign-in works only if that origin is registered on the Web client). Stop only your own `frontend-portal-run-*` container.
 
 ## 4. Commit and push only with the owner's OK
 Stage `frontend/` (source, never `node_modules/` or `dist/`, both git-ignored) and `docs/`. Message `Portal: <what changed>` plus the co-author trailer from the session.

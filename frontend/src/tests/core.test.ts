@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Core } from '../core/core'
-import { seedDemo } from '../core/demo'
+import { seedSheet } from './fixtures'
 import type { GoogleAuth, Profile } from '../lib/auth'
 import { FakeSheets } from '../lib/fakeSheets'
 import { entryHash } from '../lib/model'
@@ -12,7 +12,7 @@ const NOW = Date.UTC(YEAR, 8, 20, 10, 0, 0)
 
 function setup(email = 'lakshmana5296@gmail.com') {
   const sheets = new FakeSheets()
-  seedDemo(sheets, YEAR, NOW - 100_000)
+  seedSheet(sheets, YEAR, NOW - 100_000)
   const sharing = new FakeSharing([{ id: 'o', email: 'owner@x.com', level: 'OWNER' }])
   const profile: Profile = { email, name: 'Tester', picture: '' }
   const auth = { configured: true, profile, signIn: async () => profile, accessToken: async () => 't', signOut: () => undefined } as unknown as GoogleAuth
@@ -106,7 +106,7 @@ describe('writing straight to the Sheet', () => {
     const target = live(core).find((e) => e.name === 'Mahesh')!
     expect(await core.updateEntry(target, { date: target.date, category: target.category, name: 'Mahesh K', description: target.description, amount: 120000, person: 'Venky' })).toBe(true)
     const after = sheets.years.get(YEAR)![target.row - 2]
-    expect(after).toMatchObject({ id: target.id, name: 'Mahesh K', amount: 120000, person: 'Venky', rev: 2, updatedBy: 'bhanu@example.com', createdBy: 'demo@local' })
+    expect(after).toMatchObject({ id: target.id, name: 'Mahesh K', amount: 120000, person: 'Venky', rev: 2, updatedBy: 'bhanu@example.com', createdBy: 'seed@example.com' })
     expect(entryHash(after)).not.toBe(entryHash(target))
     expect(sheets.years.get(YEAR)).toHaveLength(13)
   })
@@ -175,7 +175,7 @@ describe('writing straight to the Sheet', () => {
 
   it('opens an older year on demand', async () => {
     const { core, sheets } = await signedIn('bhanu@example.com')
-    seedDemo(sheets, YEAR - 1, NOW - 9_999_999)
+    seedSheet(sheets, YEAR - 1, NOW - 9_999_999)
     await core.loadYear(YEAR - 1, true)
     expect(core.getState().entries[YEAR - 1]).toHaveLength(13)
     await core.loadYear(YEAR + 5)

@@ -23,7 +23,6 @@ export interface Toast { id: number; text: string; undo?: () => void; error?: bo
 
 export interface AppState {
   phase: Phase
-  demo: boolean
   profile: Profile | null
   role: Role
   users: AppUser[] | null
@@ -59,7 +58,6 @@ export interface CoreDeps {
   sharing?: () => Promise<SheetSharing>
   clock?: () => number
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null
-  demo?: boolean
   sheetUrl?: string
 }
 
@@ -95,7 +93,7 @@ export class Core {
     this.now = deps.clock ?? Date.now
     this.store = deps.storage === undefined ? (typeof localStorage === 'undefined' ? null : localStorage) : deps.storage
     this.state = {
-      phase: 'boot', demo: deps.demo ?? false, profile: null, role: 'VIEWER', users: null,
+      phase: 'boot', profile: null, role: 'VIEWER', users: null,
       authError: null, accessError: null, deniedMessage: '',
       years: [], entries: {}, loadingYears: [], contacts: [], contactsLoaded: false,
       busy: 0, refreshing: false, lastLoaded: null, toast: null,
@@ -120,7 +118,7 @@ export class Core {
 
   get canEdit() { return ROLES[this.state.role].canEdit }
   get canManageUsers() { return ROLES[this.state.role].canManageUsers }
-  get who() { return this.state.demo ? 'demo@local' : this.state.profile?.email ?? '' }
+  get who() { return this.state.profile?.email ?? '' }
   get sheetUrl() { return this.deps.sheetUrl ?? '' }
 
   /** Years offered in every year picker: the Sheet's year tabs, years that have contacts, and the current one. */
@@ -153,7 +151,6 @@ export class Core {
   // ------------------------------------------------------------------------------------------ sign-in and access
   /** Called once when the page opens: continue quietly if this browser has signed in before. */
   async start() {
-    if (this.deps.demo) { await this.enterDemo(); return }
     const auth = this.deps.auth
     if (!auth?.configured) { this.set({ phase: 'signedOut' }); return }
     if (!auth.profile) { this.set({ phase: 'signedOut' }); return }
@@ -180,11 +177,6 @@ export class Core {
     }
   }
 
-  async enterDemo() {
-    this.set({ demo: true, profile: { email: 'demo@local', name: 'Laxman', picture: '' }, phase: 'checking' })
-    await this.checkAccess()
-  }
-
   /** Reads the Sheet's Users tab and decides whether this Google account may use the portal, and as what. */
   async checkAccess() {
     const profile = this.state.profile
@@ -206,7 +198,7 @@ export class Core {
         }
         throw e
       }
-      const role = this.state.demo ? 'ADMIN' : resolveRole(users, profile.email)
+      const role = resolveRole(users, profile.email)
       if (!role) {
         this.set({ phase: 'denied', users, role: 'VIEWER', deniedMessage: `${profile.email} is not on the list of people allowed to use this app. Ask an admin to add you.` })
         return
@@ -222,7 +214,7 @@ export class Core {
   signOut() {
     this.deps.auth?.signOut()
     this.set({
-      phase: 'signedOut', demo: false, profile: null, role: 'VIEWER', users: null, entries: {}, contacts: [], contactsLoaded: false,
+      phase: 'signedOut', profile: null, role: 'VIEWER', users: null, entries: {}, contacts: [], contactsLoaded: false,
       years: [], lastLoaded: null, authError: null, accessError: null, sessionExpired: false, sharing: null,
     })
   }

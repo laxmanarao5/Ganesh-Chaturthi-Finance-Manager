@@ -1,11 +1,10 @@
 import { CLIENT_ID } from '../../config'
 import { Icon } from '../Icon'
 import { EmptyState, Spinner } from '../components'
-import { useApp, useCore, useHost } from '../hooks'
+import { useApp, useCore } from '../hooks'
 
 export function WelcomeScreen() {
   const core = useCore()
-  const host = useHost()
   const s = useApp()
   const configured = CLIENT_ID !== ''
   return (
@@ -20,9 +19,8 @@ export function WelcomeScreen() {
           {s.working ? <span className="spinner small" /> : 'Sign in with Google'}
         </button>
         {!configured && (
-          <p className="hint">Google sign-in isn't set up in this build yet. Add your Web client ID to <code>android/secrets.properties</code> and rebuild the portal. You can still look around in demo mode.</p>
+          <p className="hint">Google sign-in isn't set up in this build yet. Add your Web client ID to <code>android/secrets.properties</code> and rebuild the portal.</p>
         )}
-        <button type="button" className="btn outline big" onClick={() => host.enterDemo()} disabled={s.working}>Try demo (no account)</button>
         {s.authError && <p className="error-text" role="alert">{s.authError}</p>}
         <p className="hint">Only people on the committee's list can open the data. Changes are saved straight to the Google Sheet; there is nothing to sync.</p>
       </div>

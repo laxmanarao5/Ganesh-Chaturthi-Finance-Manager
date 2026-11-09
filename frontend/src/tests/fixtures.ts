@@ -1,16 +1,13 @@
-// Demo mode: the whole portal against an in-memory Sheet with made-up people, so it can be tried without signing in.
-// Nothing here is real data (the committee's real names and numbers never go in this repository).
+// Made-up committee data for the tests (the real names and numbers never go in this repository).
 import { currentYear } from '../lib/format'
-import { FakeSheets } from '../lib/fakeSheets'
+import type { FakeSheets } from '../lib/fakeSheets'
 import { contactRowId, newId, type Contact, type Entry, type EntryType } from '../lib/model'
-import { FakeSharing } from '../lib/sharing'
-import { Core } from './core'
 
-export function seedDemo(sheets: FakeSheets, year = currentYear(), now = Date.now()) {
+export function seedSheet(sheets: FakeSheets, year = currentYear(), now = Date.now()) {
   let n = 0
   const e = (type: EntryType, category: string, date: string, name: string, description: string, amount: number, person: string): Entry => ({
-    id: `demo${++n}`, type, year, date: `${year}-${date}`, category, name, description, amount: amount * 100, person,
-    createdBy: 'demo@local', createdAt: now - n * 1000, updatedBy: 'demo@local', updatedAt: now - n * 1000, deletedAt: null, rev: 1,
+    id: `seed${++n}`, type, year, date: `${year}-${date}`, category, name, description, amount: amount * 100, person,
+    createdBy: 'seed@example.com', createdAt: now - n * 1000, updatedBy: 'seed@example.com', updatedAt: now - n * 1000, deletedAt: null, rev: 1,
     row: 0, hashMatches: true, hadId: true,
   })
   sheets.years.set(year, [
@@ -32,7 +29,7 @@ export function seedDemo(sheets: FakeSheets, year = currentYear(), now = Date.no
     const id = newId()
     return {
       id: contactRowId(id, year), contactId: id, year, name, number, caller, called, remarks,
-      createdBy: 'demo@local', createdAt: now, updatedBy: 'demo@local', updatedAt: now, deletedAt: null, rev: 1, row: 0, hashMatches: true, hadId: true,
+      createdBy: 'seed@example.com', createdAt: now, updatedBy: 'seed@example.com', updatedAt: now, deletedAt: null, rev: 1, row: 0, hashMatches: true, hadId: true,
     }
   }
   sheets.contacts = [
@@ -45,14 +42,4 @@ export function seedDemo(sheets: FakeSheets, year = currentYear(), now = Date.no
     { name: 'Venky', email: 'venky@example.com', role: 'EDITOR' },
     { name: 'Guest', email: 'guest@example.com', role: 'VIEWER' },
   ]
-}
-
-export function demoCore(opts: { storage?: Pick<Storage, 'getItem' | 'setItem'> | null } = {}): Core {
-  const sheets = new FakeSheets()
-  seedDemo(sheets)
-  const sharing = new FakeSharing([
-    { id: 'o1', email: 'owner@example.com', level: 'OWNER' },
-    { id: 'p1', email: 'bhanu@example.com', level: 'WRITER' },
-  ])
-  return new Core({ sheets, demo: true, sharing: async () => sharing, storage: opts.storage })
 }

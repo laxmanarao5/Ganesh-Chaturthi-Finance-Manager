@@ -4,11 +4,6 @@ import { currentYear } from '../lib/format'
 
 export const CoreContext = createContext<Core | null>(null)
 
-/** Switches between the real Sheet and the in-memory demo (a separate Core, so demo mode can never touch the real Sheet). */
-export interface Host { enterDemo(): void; leaveDemo(): void }
-export const HostContext = createContext<Host>({ enterDemo: () => undefined, leaveDemo: () => undefined })
-export const useHost = () => useContext(HostContext)
-
 export function useCore(): Core {
   const c = useContext(CoreContext)
   if (!c) throw new Error('No core')

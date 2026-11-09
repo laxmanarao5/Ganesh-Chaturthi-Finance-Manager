@@ -96,7 +96,7 @@ export async function reconcileSharing(sharing: SheetSharing, desired: AppUser[]
   return report
 }
 
-/** In-memory stand-in for Drive sharing: used by demo mode and tests. */
+/** In-memory stand-in for Drive sharing: used by the tests. */
 export class FakeSharing implements SheetSharing {
   shares: Share[]
   failFor = new Set<string>()

@@ -1,4 +1,4 @@
-// An in-memory Sheet, used by demo mode and by the tests. Behaves like the real one: row numbers start at 2, new rows are appended,
+// An in-memory Sheet, used by the tests. Behaves like the real one: row numbers start at 2, new rows are appended,
 // rewriting a row replaces it, and a year tab exists only once something has been written to it.
 import type { AppUser, Contact, Entry } from './model'
 import type { SheetsApi } from './sheetsApi'

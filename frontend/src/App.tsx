@@ -3,7 +3,7 @@ import type { Core } from './core/core'
 import { ROLES } from './lib/model'
 import { Icon, type IconName } from './ui/Icon'
 import { Spinner, Toasts } from './ui/components'
-import { CoreContext, useApp, useCore, useHost, useRoute, type Route } from './ui/hooks'
+import { CoreContext, useApp, useCore, useRoute, type Route } from './ui/hooks'
 import { ContactsScreen } from './ui/screens/Contacts'
 import { EntryListScreen } from './ui/screens/EntryList'
 import { HomeScreen } from './ui/screens/Home'
@@ -72,7 +72,6 @@ function Screen({ route, go }: { route: Route; go: (r: Route) => void }) {
 
 function MainShell() {
   const core = useCore()
-  const host = useHost()
   const s = useApp()
   const [route, go] = useRoute()
   const role = ROLES[s.role]
@@ -105,8 +104,8 @@ function MainShell() {
         </nav>
         <div className="sidebar-foot">
           <button type="button" className={`nav-item${route === 'more' ? ' on' : ''}`} onClick={() => go('more')}><Icon name="person" size={22} /> <span className="grow">{s.profile?.name || s.profile?.email}</span></button>
-          <div className="muted small-text">{role.label}{s.demo ? ' · demo' : ''}</div>
-          <button type="button" className="nav-item" onClick={() => (s.demo ? host.leaveDemo() : core.signOut())}><Icon name="logout" size={22} /> {s.demo ? 'Leave demo' : 'Sign out'}</button>
+          <div className="muted small-text">{role.label}</div>
+          <button type="button" className="nav-item" onClick={() => core.signOut()}><Icon name="logout" size={22} /> Sign out</button>
         </div>
       </aside>
 
@@ -115,7 +114,6 @@ function MainShell() {
           <h1>{TITLES[route]}</h1>
           <span className="grow" />
           {s.busy > 0 && <span className="saving" role="status">Saving…</span>}
-          {s.demo && <span className="badge">Demo</span>}
           {!role.canEdit && <span className="badge">View only</span>}
           <button type="button" className={`icon-btn${s.refreshing ? ' spin' : ''}`} aria-label="Refresh from the Google Sheet" title="Refresh from the Google Sheet" onClick={() => void core.refresh()}>
             <Icon name="refresh" size={22} />

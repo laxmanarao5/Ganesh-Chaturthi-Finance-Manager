@@ -3,7 +3,7 @@ import { APK_URL, BUILD_TIME } from '../../config'
 import { ROLES } from '../../lib/model'
 import { Modal, PersonChips, SectionTitle } from '../components'
 import { usePeople } from '../data'
-import { useApp, useCore, useHost, type Route } from '../hooks'
+import { useApp, useCore, type Route } from '../hooks'
 import { Icon, type IconName } from '../Icon'
 import type { ThemeMode } from '../../core/core'
 
@@ -21,7 +21,6 @@ const ROLE_TEXT = { ADMIN: 'Admin · can edit and manage users', EDITOR: 'Editor
 
 export function MoreScreen({ go }: { go: (r: Route) => void }) {
   const core = useCore()
-  const host = useHost()
   const s = useApp()
   const people = usePeople()
   const [pickName, setPickName] = useState(false)
@@ -32,7 +31,7 @@ export function MoreScreen({ go }: { go: (r: Route) => void }) {
       <div className="card pad profile">
         <div className="avatar">{(s.profile?.name || s.profile?.email || '?').slice(0, 1).toUpperCase()}</div>
         <div>
-          <div className="entry-name">{s.profile?.name || (s.demo ? 'Demo mode' : s.profile?.email)}</div>
+          <div className="entry-name">{s.profile?.name || s.profile?.email}</div>
           <div className="entry-sub">{s.profile?.email}</div>
           <div className="label">{ROLE_TEXT[s.role]}</div>
         </div>
@@ -61,7 +60,7 @@ export function MoreScreen({ go }: { go: (r: Route) => void }) {
           <button key={m} type="button" className={`chip${s.theme === m ? ' on' : ''}`} aria-pressed={s.theme === m} onClick={() => core.setTheme(m)}>{m[0].toUpperCase() + m.slice(1)}</button>
         ))}
       </div>
-      <button type="button" className="btn outline big" onClick={() => (s.demo ? host.leaveDemo() : core.signOut())}><Icon name="logout" size={20} /> {s.demo ? 'Leave demo' : 'Sign out'}</button>
+      <button type="button" className="btn outline big" onClick={() => core.signOut()}><Icon name="logout" size={20} /> Sign out</button>
       <p className="muted small-text">Portal built {new Date(BUILD_TIME).toLocaleString()}</p>
 
       {pickName && (

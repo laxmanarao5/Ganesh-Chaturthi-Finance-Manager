@@ -1,4 +1,4 @@
-// The Sheet as the portal sees it. One interface, two implementations: Google Sheets (real) and an in-memory copy (demo and tests).
+// The Sheet as the portal sees it. One interface, two implementations: Google Sheets (real) and an in-memory copy (tests).
 import type { AppUser, Contact, Entry } from './model'
 
 export interface SheetsApi {
