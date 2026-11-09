@@ -4,6 +4,7 @@ import com.vinayaka.finance.data.model.Entry
 import com.vinayaka.finance.data.model.EntryType
 import com.vinayaka.finance.domain.Stats
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,6 +36,19 @@ class StatsTest {
         assertEquals(245_285 + 459_890 + 100_000 + 432_500L, t.spent)
         assertEquals(t.collected + t.toCollect, t.listed)
         assertEquals(t.collected - t.spent, t.cash)
+    }
+
+    @Test fun `a gift in kind with no collector is not counted as not collected`() {
+        val inKind = e(EntryType.DONATION, "Annadhanam", 0, "")
+        val promised = e(EntryType.DONATION, "Annadhanam", 50_000, "")
+        val collectedInKind = e(EntryType.DONATION, "Annadhanam", 0, "Bhanu")
+        assertFalse(inKind.isPending)
+        assertTrue(promised.isPending)
+        assertFalse(collectedInKind.isPending)
+        assertFalse(e(EntryType.EXPENDITURE, "Pooja", 100, "").isPending)      // spending is never "to collect"
+        val t = Stats.totals(listOf(inKind, promised, collectedInKind))
+        assertEquals(50_000L, t.toCollect)
+        assertEquals(0L, t.collected)
     }
 
     @Test fun `per person collected spent and net`() {

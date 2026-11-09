@@ -1,1 +1,1 @@
-{"versionCode":4,"versionName":"1.2.0","apk":"vinayaka-finance.apk","sha256":"b03f635ca4a07ebf7b07d628c142309019e29f9bfd947df2dfcbe6414493d7c2","size":23535655,"notes":"No more swipe to delete: a stray swipe can no longer remove a record.\nTo delete, open a record, tap Delete this record and confirm."}
+{"versionCode":5,"versionName":"1.2.1","apk":"vinayaka-finance.apk","sha256":"5b7051eb7a2851315483a7b2df42f27d0ceba3e90f29cacf552ac712c839d51f","size":23535655,"notes":"Gifts in kind (no money) are no longer counted as not collected, and no collector is asked for them."}

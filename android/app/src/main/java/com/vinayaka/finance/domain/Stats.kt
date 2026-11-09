@@ -28,7 +28,7 @@ object Stats {
         val e = live(entries)
         return Totals(
             collected = e.filter { it.type.isIncome && it.person.isNotBlank() }.sumOf { it.amount },
-            toCollect = e.filter { it.type.isIncome && it.person.isBlank() }.sumOf { it.amount },
+            toCollect = e.filter { it.isPending }.sumOf { it.amount },
             spent = e.filter { !it.type.isIncome }.sumOf { it.amount },
         )
     }

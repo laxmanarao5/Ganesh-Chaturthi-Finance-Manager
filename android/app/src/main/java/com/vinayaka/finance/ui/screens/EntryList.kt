@@ -104,7 +104,7 @@ fun EntryListScreen(vm: AppViewModel, type: EntryType) {
             .filter {
                 when (who) {
                     "" -> true
-                    NOT_COLLECTED -> it.person.isBlank()
+                    NOT_COLLECTED -> it.isPending
                     else -> it.person.equals(who, true)
                 }
             }
@@ -242,7 +242,7 @@ fun EntryListScreen(vm: AppViewModel, type: EntryType) {
         PersonPickerDialog(
             title = (if (type.isIncome) "Who collected " else "Who paid ") + e.name.take(24) + "?",
             people = chipPeople, current = e.person,
-            noneLabel = if (type.isIncome) "Not collected yet" else "Not set",
+            noneLabel = if (type.isIncome && e.amount > 0) "Not collected yet" else "Not set",
             onPick = { vm.setPerson(e, it) },
             onDismiss = { assigning = null },
         )
@@ -320,7 +320,7 @@ fun EntryEditorSheet(
                 }
             }
             Text(type.personLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            PersonChips(people, person, { person = it }, noneLabel = if (type.isIncome) "Not collected yet" else "Not set")
+            PersonChips(people, person, { person = it }, noneLabel = if (type.isIncome && (amount ?: 1L) > 0L) "Not collected yet" else "Not set")
             Text("Date", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             DatePickerField(date, { date = it }, onlyYear = year)
             Button(

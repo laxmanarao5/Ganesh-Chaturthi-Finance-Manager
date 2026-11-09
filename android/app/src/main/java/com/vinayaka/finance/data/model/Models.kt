@@ -73,8 +73,11 @@ data class Entry(
     override val dirty: Boolean = true,
 ) : SyncRecord<Entry> {
     val isDeleted: Boolean get() = deletedAt != null
-    /** Income that has been promised but not yet collected by anyone. */
-    val isPending: Boolean get() = type.isIncome && person.isBlank()
+    /**
+     * Money that has been promised but not yet collected by anyone: income with an amount and no collector.
+     * A gift in kind (amount 0) is handed to the committee directly, so it is never "not collected".
+     */
+    val isPending: Boolean get() = type.isIncome && person.isBlank() && amount > 0
 
     override fun contentHash(): String = fnv(
         "$date|${type.sheetName}|${category.trim()}|${name.trim()}|${description.trim()}|$amount|${person.trim()}|${if (deletedAt != null) 1 else 0}",

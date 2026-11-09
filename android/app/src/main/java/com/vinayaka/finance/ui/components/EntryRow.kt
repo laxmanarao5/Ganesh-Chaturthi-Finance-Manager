@@ -80,7 +80,7 @@ fun EntryRow(
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
                         modifier = if (onAssign != null) Modifier.clickable(onClick = onAssign) else Modifier,
                     )
-                } else if (entry.type.isIncome) {
+                } else if (entry.isPending) {   // not for a gift in kind (amount 0): that is given to us directly
                     Text(
                         "Not collected" + if (onAssign != null) " · tap to set" else "",
                         style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold,

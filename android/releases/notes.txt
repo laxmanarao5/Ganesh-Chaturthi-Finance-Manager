@@ -1,2 +1,1 @@
-No more swipe to delete: a stray swipe can no longer remove a record.
-To delete, open a record, tap Delete this record and confirm.
+Gifts in kind (no money) are no longer counted as not collected, and no collector is asked for them.
