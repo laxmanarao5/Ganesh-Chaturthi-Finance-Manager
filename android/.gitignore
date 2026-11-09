@@ -9,3 +9,6 @@ keystore/
 *.iml
 .kotlin/
 dist/
+
+# The published download (linked from the README)
+!releases/vinayaka-finance.apk
