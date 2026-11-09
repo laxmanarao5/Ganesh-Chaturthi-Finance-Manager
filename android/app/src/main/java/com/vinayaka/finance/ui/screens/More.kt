@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,6 +61,7 @@ import com.vinayaka.finance.data.Prefs
 import com.vinayaka.finance.data.ThemeMode
 import com.vinayaka.finance.data.model.Role
 import com.vinayaka.finance.ui.AppViewModel
+import com.vinayaka.finance.ui.SignOutUi
 import com.vinayaka.finance.ui.SyncUi
 import com.vinayaka.finance.ui.components.PersonPickerDialog
 import com.vinayaka.finance.ui.components.SectionTitle
@@ -86,7 +88,7 @@ private fun NavTile(icon: ImageVector, title: String, subtitle: String, onClick:
 @Composable
 fun MoreScreen(vm: AppViewModel, prefs: Prefs, nav: NavController) {
     val dirty by vm.dirtyCount.collectAsStateWithLifecycle()
-    var confirmSignOut by remember { mutableStateOf(false) }
+    val signOut by vm.signOutState.collectAsStateWithLifecycle()
     var pickMyName by remember { mutableStateOf(false) }
     val people by vm.people.collectAsStateWithLifecycle()
     val canEdit = prefs.role.canEdit
@@ -134,10 +136,14 @@ fun MoreScreen(vm: AppViewModel, prefs: Prefs, nav: NavController) {
             }
         }
         Spacer(Modifier.height(16.dp))
-        OutlinedButton(onClick = { if (dirty > 0) confirmSignOut = true else vm.signOut() }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        OutlinedButton(onClick = { vm.signOut() }, enabled = signOut == SignOutUi.Idle, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             Icon(Icons.AutoMirrored.Rounded.Logout, null, Modifier.size(20.dp))
             Spacer(Modifier.size(8.dp))
-            Text(if (prefs.demo) "Leave demo" else "Sign out")
+            Text(
+                if (prefs.demo) "Leave demo"
+                else if (vm.needsSyncOnLeave(prefs, dirty)) "Sync and sign out"
+                else "Sign out",
+            )
         }
     }
 
@@ -147,14 +153,26 @@ fun MoreScreen(vm: AppViewModel, prefs: Prefs, nav: NavController) {
             onPick = { vm.setMyName(it) }, onDismiss = { pickMyName = false },
         )
     }
-    if (confirmSignOut) {
-        AlertDialog(
-            onDismissRequest = { confirmSignOut = false },
-            title = { Text("Sign out with unsent changes?") },
-            text = { Text("$dirty change${if (dirty == 1) " has" else "s have"} not been synced. Signing out removes this phone's copy, so they would be lost. Sync first to keep them.") },
-            confirmButton = { TextButton(onClick = { confirmSignOut = false; vm.signOut() }) { Text("Sign out anyway") } },
-            dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } },
+    when (val s = signOut) {
+        SignOutUi.Syncing -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Syncing before signing out") },
+            text = { Column { Text("Sending your changes to the Google Sheet…"); LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp)) } },
+            confirmButton = {},
         )
+        is SignOutUi.Failed -> AlertDialog(
+            onDismissRequest = vm::cancelSignOut,
+            title = { Text("Couldn't sync") },
+            text = {
+                Text(
+                    "${s.message}\n\nSigning out removes this phone's copy, so the ${s.pending} change${if (s.pending == 1) "" else "s"} " +
+                        "not yet in the Sheet would be lost. Stay signed in and sync again when you can.",
+                )
+            },
+            confirmButton = { TextButton(onClick = vm::cancelSignOut) { Text("Stay signed in") } },
+            dismissButton = { TextButton(onClick = { vm.signOut(force = true) }) { Text("Sign out anyway") } },
+        )
+        SignOutUi.Idle -> Unit
     }
 }
 

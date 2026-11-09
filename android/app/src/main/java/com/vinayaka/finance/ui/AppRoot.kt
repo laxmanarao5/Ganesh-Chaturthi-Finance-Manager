@@ -1,5 +1,9 @@
 package com.vinayaka.finance.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -44,10 +49,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -94,6 +103,12 @@ fun AppRoot(vm: AppViewModel) {
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
@@ -125,6 +140,9 @@ private fun MainScaffold(vm: AppViewModel, prefs: Prefs) {
     val snackbar = remember { SnackbarHostState() }
     val dirty by vm.dirtyCount.collectAsStateWithLifecycle()
     val sync by vm.sync.collectAsStateWithLifecycle()
+    val exit by vm.exit.collectAsStateWithLifecycle()
+    var askExit by rememberSaveable { mutableStateOf(false) }
+    val activity = LocalContext.current.findActivity()
 
     // First time on this phone: download everything from the Sheet without asking.
     LaunchedEffect(prefs.spreadsheetId, prefs.demo) {
@@ -175,6 +193,54 @@ private fun MainScaffold(vm: AppViewModel, prefs: Prefs) {
             composable("users") { UsersScreen(vm) }
             composable("import") { ImportScreen(vm) }
         }
+    }
+
+    // Back never drops to Home or the menu from a main tab: it asks before leaving. Inside a sub-screen it goes back one step.
+    // Declared after the NavHost so it takes priority over the NavHost's own back handling.
+    BackHandler {
+        when {
+            exit != ExitUi.Idle -> Unit          // already leaving
+            !isTab -> nav.popBackStack()
+            else -> askExit = true
+        }
+    }
+
+    if (askExit && exit == ExitUi.Idle) {
+        val willSync = vm.needsSyncOnLeave(prefs, dirty)
+        AlertDialog(
+            onDismissRequest = { askExit = false },
+            icon = { Icon(Icons.AutoMirrored.Rounded.ExitToApp, null) },
+            title = { Text("Exit Vinayaka Finance?") },
+            text = {
+                Text(
+                    if (willSync) "Are you sure you want to exit? $dirty change${if (dirty == 1) "" else "s"} not yet in the Google Sheet will be synced first."
+                    else "Are you sure you want to exit?",
+                )
+            },
+            confirmButton = { TextButton(onClick = { askExit = false; vm.exitApp() }) { Text(if (willSync) "Sync and exit" else "Yes, exit") } },
+            dismissButton = { TextButton(onClick = { askExit = false }) { Text("Stay") } },
+        )
+    }
+    when (val e = exit) {
+        ExitUi.Syncing -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Syncing before closing") },
+            text = { Column { Text("Sending your changes to the Google Sheet…"); LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp)) } },
+            confirmButton = {},
+        )
+        is ExitUi.Failed -> AlertDialog(
+            onDismissRequest = vm::cancelExit,
+            icon = { Icon(Icons.Rounded.ErrorOutline, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Couldn't sync") },
+            text = { Text(e.message) },
+            confirmButton = { TextButton(onClick = vm::exitAnyway) { Text("Exit anyway") } },
+            dismissButton = { TextButton(onClick = vm::cancelExit) { Text("Stay") } },
+        )
+        ExitUi.Close -> LaunchedEffect(Unit) {
+            vm.cancelExit()          // so a recreated screen does not close again
+            activity?.finish()
+        }
+        ExitUi.Idle -> Unit
     }
 
     when (val s = sync) {

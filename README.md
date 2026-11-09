@@ -45,6 +45,11 @@ Kotlin, Jetpack Compose (Material 3), Room, Google Sign-In (Credential Manager +
 * **Contacts**: people to phone, with a *called* tick **per year**. Opening a new year shows everyone un-called.
 * **Every screen opens on the current year** (so in 2027 it opens on 2027) and has its own year picker.
 * All totals are calculated in the app. The Sheet only holds plain rows.
+* **Back button asks before leaving.** On a main screen, Back shows "Are you sure you want to exit?" instead of dropping to Home. Choosing
+  Yes sends any changes that are waiting to the Sheet first (if you are online and may edit), then closes the app. If that sync fails you can
+  stay or exit anyway; the changes stay safe on the phone.
+* **Sign out syncs first.** Signing out removes this phone's copy, so any waiting changes are sent to the Sheet before anything is deleted.
+  If that sync fails, nothing is deleted and you can stay signed in or sign out anyway.
 
 ## Build (everything runs in Docker, nothing is installed on your machine)
 

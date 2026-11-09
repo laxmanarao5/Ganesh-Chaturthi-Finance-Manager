@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -51,6 +52,19 @@ sealed interface UsersUi {
     data object Loading : UsersUi
     data class Loaded(val users: List<AppUser>, val hasTab: Boolean) : UsersUi
     data class Failed(val message: String) : UsersUi
+}
+
+sealed interface SignOutUi {
+    data object Idle : SignOutUi
+    data object Syncing : SignOutUi
+    data class Failed(val message: String, val pending: Int) : SignOutUi
+}
+
+sealed interface ExitUi {
+    data object Idle : ExitUi
+    data object Syncing : ExitUi
+    data class Failed(val message: String) : ExitUi
+    data object Close : ExitUi
 }
 
 data class SharingUi(val report: SharingReport? = null, val error: String? = null)
@@ -210,8 +224,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun signOut() {
+    private val _signOut = MutableStateFlow<SignOutUi>(SignOutUi.Idle)
+    /** Progress of signing out: waiting changes are synced first, because signing out removes this phone's copy. */
+    val signOutState: StateFlow<SignOutUi> = _signOut.asStateFlow()
+
+    /**
+     * Signs out. If changes are waiting (and this account may write), they are sent to the Sheet first;
+     * if that fails nothing is deleted and [signOutState] asks whether to stay or sign out anyway ([force]).
+     */
+    fun signOut(force: Boolean = false) {
+        if (_signOut.value == SignOutUi.Syncing) return
         viewModelScope.launch {
+            if (!force) {
+                if (_sync.value == SyncUi.Running) { _signOut.value = SignOutUi.Syncing; _sync.first { it != SyncUi.Running } }
+                val p = c.settings.current()
+                if (needsSyncOnLeave(p, dirtyCount.value)) {
+                    _signOut.value = SignOutUi.Syncing
+                    performSync(allYears = false, extraYears = emptySet(), quiet = true)
+                    val s = _sync.value
+                    if (s is SyncUi.Failed) {
+                        _sync.value = SyncUi.Idle   // shown in the sign-out dialog instead
+                        _signOut.value = SignOutUi.Failed(s.message, dirtyCount.value)
+                        return@launch
+                    }
+                }
+            }
+            _signOut.value = SignOutUi.Idle
             c.auth.signOut()
             c.repo.clear()
             c.settings.clearAccount()
@@ -339,7 +377,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ------------------------------------------------------------ sync
     fun syncNow(allYears: Boolean = false, extraYears: Set<Int> = emptySet(), quiet: Boolean = false) {
         if (_sync.value == SyncUi.Running) return
-        viewModelScope.launch {
+        viewModelScope.launch { performSync(allYears, extraYears, quiet) }
+    }
+
+    private suspend fun performSync(allYears: Boolean, extraYears: Set<Int>, quiet: Boolean) {
+        run {
             _sync.value = SyncUi.Running
             val p = c.settings.current()
             try {
@@ -353,7 +395,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     c.repo.clear()
                     c.settings.setDenied("${p.email} is no longer on this app's access list. Ask an admin to add this email, then check again.")
                     _sync.value = SyncUi.Idle
-                    return@launch
+                    return@run
                 }
                 val report = SyncEngine(c.store, gateway).sync(
                     currentYear = currentYear(), canWrite = role.canEdit,
@@ -377,6 +419,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun dismissSync() { _sync.value = SyncUi.Idle }
+
+    // ------------------------------------------------------------ exit
+    private val _exit = MutableStateFlow<ExitUi>(ExitUi.Idle)
+    /** Progress of "Yes, exit": syncing first when something is waiting, then [ExitUi.Close]. */
+    val exit: StateFlow<ExitUi> = _exit.asStateFlow()
+
+    fun cancelSignOut() { _signOut.value = SignOutUi.Idle }
+
+    /** Whether leaving (closing the app or signing out) should first send this phone's changes to the Sheet. */
+    fun needsSyncOnLeave(p: Prefs, pending: Int) = !p.demo && !p.denied && p.role.canEdit && pending > 0
+
+    /** The user confirmed they want to leave. Sends waiting changes first (if any), then asks the screen to close. */
+    fun exitApp() {
+        if (_exit.value != ExitUi.Idle) return
+        viewModelScope.launch {
+            _exit.value = ExitUi.Syncing
+            if (_sync.value == SyncUi.Running) _sync.first { it != SyncUi.Running }   // a sync is already under way: let it finish
+            val p = c.settings.current()
+            if (needsSyncOnLeave(p, dirtyCount.value)) {
+                performSync(allYears = false, extraYears = emptySet(), quiet = true)
+                val s = _sync.value
+                if (s is SyncUi.Failed) {
+                    _sync.value = SyncUi.Idle   // shown in the exit dialog instead
+                    _exit.value = ExitUi.Failed(s.message)
+                    return@launch
+                }
+            }
+            _exit.value = ExitUi.Close
+        }
+    }
+
+    /** After a failed sync: leave anyway (the changes stay safe on this phone). */
+    fun exitAnyway() { _exit.value = ExitUi.Close }
+
+    fun cancelExit() { _exit.value = ExitUi.Idle }
 
     /** Throws away this phone's copy and downloads everything from the Sheet. */
     fun resetFromSheet() {
