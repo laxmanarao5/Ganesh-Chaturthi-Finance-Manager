@@ -5,10 +5,13 @@
 **Festival accounts for the committee, on your phone. Works offline, syncs with one Google Sheet. Free, no server.**
 
 [![Download APK](https://img.shields.io/badge/Download-APK-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/laxmanarao5/Ganesh-Chaturthi-Finance-Manager/raw/master/android/releases/vinayaka-finance.apk)
+[![Open web portal](https://img.shields.io/badge/Open-Web%20portal-B54708?style=for-the-badge&logo=googlechrome&logoColor=white)](https://laxmanarao5.github.io/Ganesh-Chaturthi-Finance-Manager/)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white)
 
 </div>
+
+**Web portal:** open https://laxmanarao5.github.io/Ganesh-Chaturthi-Finance-Manager/ on any phone or computer and sign in with the same Google account (no install).
 
 **Install:** on your phone tap [**Download APK**](https://github.com/laxmanarao5/Ganesh-Chaturthi-Finance-Manager/raw/master/android/releases/vinayaka-finance.apk)
 (about 23 MB), open the file and allow "install from this source" when Android asks. Then sign in with your Google account; you can use the app

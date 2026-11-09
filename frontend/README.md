@@ -1,5 +1,7 @@
 # Vinayaka Finance: web portal
 
+**Live at https://laxmanarao5.github.io/Ganesh-Chaturthi-Finance-Manager/** (sign in with your committee Google account).
+
 The Android app's screens and rules in a browser, for phones and desktops. Sign in once with Google; **there is no sync**: every change you save is
 written straight to the committee's Google Sheet, and the Sheet is read fresh when you open a screen. It is a static site (React, Vite, TypeScript), so there is no server and nothing to pay for.
 
