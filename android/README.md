@@ -40,6 +40,7 @@ Kotlin, Jetpack Compose (Material 3), Room, Google Sign-In (Credential Manager +
   stay or exit anyway; the changes stay safe on the phone.
 * **Sign out syncs first.** Signing out removes this phone's copy, so any waiting changes are sent to the Sheet before anything is deleted.
   If that sync fails, nothing is deleted and you can stay signed in or sign out anyway.
+* **No swipe to delete.** A stray swipe cannot remove a record. To delete one, open it, tap **Delete this record** and confirm (an Undo shows right after).
 
 ## Build (everything runs in Docker, nothing is installed on your machine)
 

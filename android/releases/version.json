@@ -1,1 +1,1 @@
-{"versionCode":3,"versionName":"1.1.1","apk":"vinayaka-finance.apk","sha256":"db63f7bb53ffc16f911b77975d5bf680ed0bc05d1df00d4967e36e15060042e7","size":23519271,"notes":"Test release to check the in-app update.\nNo other changes since 1.1.0."}
+{"versionCode":4,"versionName":"1.2.0","apk":"vinayaka-finance.apk","sha256":"b03f635ca4a07ebf7b07d628c142309019e29f9bfd947df2dfcbe6414493d7c2","size":23535655,"notes":"No more swipe to delete: a stray swipe can no longer remove a record.\nTo delete, open a record, tap Delete this record and confirm."}

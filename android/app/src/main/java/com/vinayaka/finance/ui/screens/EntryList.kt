@@ -1,6 +1,5 @@
 package com.vinayaka.finance.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,8 +19,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,22 +31,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -204,7 +199,8 @@ fun EntryListScreen(vm: AppViewModel, type: EntryType) {
                             }
                         }
                         items(rows, key = { it.id }) { e ->
-                            if (canEdit) SwipeToDeleteRow(e, onDelete = { vm.deleteEntry(e) }, onClick = { editing = e }, onAssign = { assigning = e })
+                            // No swipe-to-delete: a stray swipe must never remove a record. Deleting is in the edit sheet, behind a confirmation.
+                            if (canEdit) EntryRow(e, onClick = { editing = e }, onAssign = { assigning = e })
                             else EntryRow(e)
                         }
                     }
@@ -238,6 +234,7 @@ fun EntryListScreen(vm: AppViewModel, type: EntryType) {
         EntryEditorSheet(
             type = type, year = e.year, existing = e, people = chipPeople, defaultCategory = e.category, defaultPerson = e.person,
             onSave = { d, c, n, desc, amt, p -> vm.updateEntry(e, d, c, n, desc, amt, p); editing = null },
+            onDelete = { vm.deleteEntry(e); editing = null },
             onDismiss = { editing = null },
         )
     }
@@ -250,26 +247,6 @@ fun EntryListScreen(vm: AppViewModel, type: EntryType) {
             onDismiss = { assigning = null },
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SwipeToDeleteRow(entry: Entry, onDelete: () -> Unit, onClick: () -> Unit, onAssign: () -> Unit) {
-    val latestDelete by rememberUpdatedState(onDelete)
-    val state = rememberSwipeToDismissBoxState()
-    LaunchedEffect(state.currentValue) {
-        if (state.currentValue == SwipeToDismissBoxValue.EndToStart) latestDelete()
-    }
-    SwipeToDismissBox(
-        state = state,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(
-                Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.errorContainer).padding(end = 24.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) { Icon(Icons.Rounded.Delete, "Delete", tint = MaterialTheme.colorScheme.onErrorContainer) }
-        },
-    ) { EntryRow(entry, onClick = onClick, onAssign = onAssign) }
 }
 
 /** Keep digits and at most one point with two decimals. */
@@ -298,7 +275,10 @@ fun EntryEditorSheet(
     defaultPerson: String,
     onSave: (date: String, category: String, name: String, description: String, amount: Long, person: String) -> Unit,
     onDismiss: () -> Unit,
+    /** Shown only when editing; always asks "Are you sure?" first. */
+    onDelete: (() -> Unit)? = null,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val initialDate = existing?.date ?: LocalDate.now().let { runCatching { it.withYear(year) }.getOrDefault(it) }.toString()
     var date by remember { mutableStateOf(initialDate) }
@@ -347,6 +327,20 @@ fun EntryEditorSheet(
                 onClick = { onSave(date, category, name, description, amount ?: 0L, person) }, enabled = valid,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) { Text(if (existing == null) "Save" else "Save changes") }
+            if (existing != null && onDelete != null) {
+                TextButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Delete this record", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
+    }
+    if (confirmDelete && existing != null && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete \"${existing.name.take(40)}\"?") },
+            text = { Text("It is removed here and, after the next sync, from the Google Sheet. You can undo right after deleting.") },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
     }
 }
