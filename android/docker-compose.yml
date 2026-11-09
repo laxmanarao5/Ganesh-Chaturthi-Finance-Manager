@@ -1,0 +1,19 @@
+# Usage (from this folder):
+#   docker compose build
+#   docker compose run --rm android gradle assembleDebug
+#   docker compose run --rm android gradle testDebugUnitTest
+services:
+  android:
+    build: .
+    image: vinayaka-android-build
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - gradle-cache:/gradle-cache      # keeps downloaded dependencies between runs
+      - android-sdk:/opt/android-sdk    # SDK packages Gradle installs on demand persist here
+    environment:
+      - GRADLE_OPTS=-Dorg.gradle.daemon=false -Xmx3g
+      - SPREADSHEET_URL   # passed through from your shell if set (or put it in secrets.properties)
+volumes:
+  gradle-cache:
+  android-sdk:
