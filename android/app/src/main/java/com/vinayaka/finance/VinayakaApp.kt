@@ -8,6 +8,7 @@ import com.vinayaka.finance.data.RoomEntryStore
 import com.vinayaka.finance.data.Settings
 import com.vinayaka.finance.data.auth.GoogleAuth
 import com.vinayaka.finance.data.local.AppDatabase
+import com.vinayaka.finance.data.update.Updater
 import com.vinayaka.finance.data.sharing.DriveSharing
 import com.vinayaka.finance.data.sharing.FakeSharing
 import com.vinayaka.finance.data.sharing.SheetSharing
@@ -22,6 +23,7 @@ class AppContainer(context: Context) {
     val store = RoomEntryStore(db.entryDao(), db.contactDao())
     val settings = Settings(context)
     val auth = GoogleAuth(context)
+    val updater = Updater(context)
 
     /** Demo mode talks to this in-memory sheet so the app can be tried without a Google account. */
     private val demoSheet = FakeSheetGateway()

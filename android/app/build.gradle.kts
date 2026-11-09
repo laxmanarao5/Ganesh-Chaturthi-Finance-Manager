@@ -1,3 +1,4 @@
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -11,6 +12,12 @@ val secrets = Properties().apply {
     val f = rootProject.file("secrets.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
+
+// The app version lives in version.properties (change it with `sh bump-version.sh major|minor|patch`, see the release-build skill).
+// The in-app updater offers an update only when the published versionCode is higher than the installed one.
+val versionProps = Properties().apply { rootProject.file("version.properties").inputStream().use { load(it) } }
+val appVersionCode = versionProps.getProperty("versionCode").trim().toInt()
+val appVersionName = versionProps.getProperty("versionName").trim()
 
 // A stable signing key (created by make-keystore.sh) keeps the SHA-1 registered in Google Cloud valid across builds.
 val keystoreProps = Properties().apply {
@@ -37,8 +44,8 @@ android {
         applicationId = "com.vinayaka.finance"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${secrets.getProperty("GOOGLE_WEB_CLIENT_ID", "")}\"")
         // The committee's Google Sheet is fixed at build time: SPREADSHEET_URL (full link or bare id) from
         // secrets.properties or the environment. The app never asks for it.
@@ -72,6 +79,27 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+    }
+}
+
+// ./gradlew publishApk: builds the APK and writes releases/vinayaka-finance.apk plus releases/version.json (version, SHA-256, size,
+// and the text of releases/notes.txt). Commit and push the releases/ folder and phones with the app offer the update.
+tasks.register("publishApk") {
+    group = "distribution"
+    description = "Builds the debug APK and writes releases/vinayaka-finance.apk and releases/version.json for the in-app updater."
+    dependsOn("assembleDebug")
+    doLast {
+        val apk = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile
+        val out = rootProject.file("releases").apply { mkdirs() }
+        val target = File(out, "vinayaka-finance.apk")
+        apk.copyTo(target, overwrite = true)
+        val sha = MessageDigest.getInstance("SHA-256").digest(target.readBytes()).joinToString("") { "%02x".format(it) }
+        val notes = File(out, "notes.txt").takeIf { it.exists() }?.readText()?.trim().orEmpty()
+        fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "").replace("\n", "\\n")
+        File(out, "version.json").writeText(
+            """{"versionCode":$appVersionCode,"versionName":"$appVersionName","apk":"vinayaka-finance.apk","sha256":"$sha","size":${target.length()},"notes":"${esc(notes)}"}""" + "\n",
+        )
+        println("Published ${target.name}: version $appVersionName ($appVersionCode), ${target.length()} bytes, sha256 $sha")
     }
 }
 

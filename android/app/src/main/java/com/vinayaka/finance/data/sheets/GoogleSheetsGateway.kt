@@ -62,6 +62,7 @@ class GoogleSheetsGateway(
     private val base = "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId"
     private val http = GoogleHttp(accessToken, client)
     private var tabIds: MutableMap<String, Int>? = null
+    private val formattedTabs = mutableSetOf<String>()
 
     // ---------------------------------------------------------------- http
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
@@ -133,7 +134,10 @@ class GoogleSheetsGateway(
         updates: List<Pair<Int, List<Any>>>, appends: List<List<Any>>,
     ) {
         if (updates.isEmpty() && appends.isEmpty()) return
+        val existed = title in tabs()
         ensureTab(title, spec)
+        // A tab that was made by hand (or by an older version) has no date/number formats: without them dates show as serial numbers.
+        if (existed && formattedTabs.add(title)) fixNumberFormats(title, spec)
         if (updates.isNotEmpty()) {
             call("POST", "$base/values:batchUpdate", buildJsonObject {
                 put("valueInputOption", "RAW")
@@ -178,6 +182,25 @@ class GoogleSheetsGateway(
         val id = res["replies"]!!.jsonArray[0].jsonObject["addSheet"]!!.jsonObject["properties"]!!.jsonObject["sheetId"]!!.jsonPrimitive.content.toInt()
         tabs()[title] = id
         return id
+    }
+
+    /** Makes the Date and Amount columns of an existing tab show as dates and numbers (idempotent, one call per tab per session). */
+    private suspend fun fixNumberFormats(title: String, spec: TabSpec) {
+        val id = tabs()[title] ?: return
+        val requests = buildList {
+            spec.dateColumn?.let { c ->
+                add(repeatCell(id, 1, null, c, c + 1,
+                    buildJsonObject { putJsonObject("numberFormat") { put("type", "DATE"); put("pattern", "yyyy-mm-dd") } },
+                    "userEnteredFormat.numberFormat"))
+            }
+            spec.amountColumn?.let { c ->
+                add(repeatCell(id, 1, null, c, c + 1,
+                    buildJsonObject { putJsonObject("numberFormat") { put("type", "NUMBER"); put("pattern", "#,##0.##") } },
+                    "userEnteredFormat.numberFormat"))
+            }
+        }
+        if (requests.isEmpty()) return
+        call("POST", "$base:batchUpdate", buildJsonObject { putJsonArray("requests") { requests.forEach { add(it) } } })
     }
 
     private suspend fun ensureTab(title: String, spec: TabSpec) {

@@ -69,6 +69,32 @@ docker compose run --rm android sh make-keystore.sh    # creates keystore/ (git-
 
 Back up the `keystore/` folder. If you lose it, you must register a new SHA-1 in Google Cloud.
 
+## Updating the app (from this public GitHub repo)
+
+The app updates itself from `android/releases/` in this repo, with no store and no server:
+
+* On launch it quietly reads `releases/version.json` and compares the `versionCode` with its own. If GitHub has a **higher** one, a dialog
+  offers **Update now** (with the release notes). **More > App version** checks on demand and says "You're up to date" when it is.
+* **Update now** downloads `vinayaka-finance.apk`, checks it against the SHA-256 in `version.json`, and opens Android's installer. The first
+  time, Android asks you to allow installs from this app. Your data stays on the phone.
+* Android installs it over the current app **only if it is signed with the same key**, so a file from anywhere else cannot replace the app.
+  That is why the `keystore/` folder must be kept.
+* Phones on version 1.0 do not have this feature: install the new APK by hand once; later updates are in the app.
+
+### Publishing a new version
+
+With Claude Code, run the **`release-build`** skill (in `.claude/skills/`): it asks whether this is a **major**, **minor** or **patch** update,
+bumps the version, builds in Docker and publishes. By hand, everything runs in Docker from this folder:
+
+1. `docker compose run --rm android sh bump-version.sh minor` (or `major` / `patch`) edits `version.properties`: `versionCode` always +1,
+   `versionName` 1.4.2 becomes 2.0.0 / 1.5.0 / 1.4.3. Edit `releases/notes.txt` (shown as "What's new").
+2. `docker compose run --rm android ./gradlew testDebugUnitTest publishApk` runs the tests, builds, and writes
+   `releases/vinayaka-finance.apk` and `releases/version.json`.
+3. Commit and push `android/version.properties` and `android/releases/`. GitHub's raw files are cached for about 5 minutes, so phones may see it a little later.
+
+The skill **`build-debug`** only runs the tests and builds an APK, without changing the version.
+`CLAUDE.md` at the repo root explains the whole project to any new agent or developer.
+
 ## Try it without Google
 
 On the first screen choose **Try demo**. It fills the app with sample records and contacts and uses an in-memory "sheet".

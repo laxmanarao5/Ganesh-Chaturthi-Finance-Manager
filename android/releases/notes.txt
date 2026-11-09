@@ -1,0 +1,4 @@
+The app can now update itself from GitHub (More, App version).
+Back asks before exiting and syncs your changes first.
+Signing out syncs your changes first.
+Admins can share the Google Sheet with users from the Users page.

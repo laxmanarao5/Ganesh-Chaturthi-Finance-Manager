@@ -10,6 +10,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -64,6 +66,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.vinayaka.finance.BuildConfig
 import com.vinayaka.finance.data.Prefs
 import com.vinayaka.finance.data.ThemeMode
 import com.vinayaka.finance.data.model.EntryType
@@ -143,6 +146,9 @@ private fun MainScaffold(vm: AppViewModel, prefs: Prefs) {
     val exit by vm.exit.collectAsStateWithLifecycle()
     var askExit by rememberSaveable { mutableStateOf(false) }
     val activity = LocalContext.current.findActivity()
+
+    // Once per launch, quietly look on GitHub for a newer version.
+    LaunchedEffect(Unit) { vm.checkForUpdate(manual = false) }
 
     // First time on this phone: download everything from the Sheet without asking.
     LaunchedEffect(prefs.spreadsheetId, prefs.demo) {
@@ -243,6 +249,8 @@ private fun MainScaffold(vm: AppViewModel, prefs: Prefs) {
         ExitUi.Idle -> Unit
     }
 
+    UpdateHost(vm, activity)
+
     when (val s = sync) {
         is SyncUi.Done -> SyncDoneDialog(s.report, vm::dismissSync)
         is SyncUi.Failed -> AlertDialog(
@@ -253,6 +261,79 @@ private fun MainScaffold(vm: AppViewModel, prefs: Prefs) {
             confirmButton = { TextButton(onClick = vm::dismissSync) { Text("OK") } },
         )
         else -> Unit
+    }
+}
+
+/** Dialogs for the in-app update: found, downloading, allow-installs, done or failed. Works from any screen. */
+@Composable
+private fun UpdateHost(vm: AppViewModel, activity: Activity?) {
+    val state by vm.update.collectAsStateWithLifecycle()
+    when (val u = state) {
+        UpdateUi.Idle -> Unit
+        UpdateUi.Checking -> AlertDialog(
+            onDismissRequest = vm::dismissUpdate,
+            title = { Text("Checking for updates") },
+            text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
+            confirmButton = { TextButton(onClick = vm::dismissUpdate) { Text("Cancel") } },
+        )
+        UpdateUi.UpToDate -> AlertDialog(
+            onDismissRequest = vm::dismissUpdate,
+            icon = { Icon(Icons.Rounded.CloudDone, null, tint = MaterialTheme.colorScheme.tertiary) },
+            title = { Text("You're up to date") },
+            text = { Text("Version ${BuildConfig.VERSION_NAME} is the newest one.") },
+            confirmButton = { TextButton(onClick = vm::dismissUpdate) { Text("OK") } },
+        )
+        is UpdateUi.Available -> AlertDialog(
+            onDismissRequest = vm::dismissUpdate,
+            icon = { Icon(Icons.Rounded.SystemUpdate, null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Update available") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Version ${u.info.versionName} is ready (you have ${BuildConfig.VERSION_NAME}).")
+                    if (u.info.size > 0) Text("Download size: ${"%.1f".format(u.info.size / 1_048_576.0)} MB", style = MaterialTheme.typography.bodySmall)
+                    if (u.info.notes.isNotBlank()) Text("What's new:\n${u.info.notes}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Your data stays on the phone.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = vm::startUpdate) { Text("Update now") } },
+            dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text("Later") } },
+        )
+        is UpdateUi.Downloading -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Downloading update") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LinearProgressIndicator(progress = { u.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                    Text("${u.percent}%")
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text("Cancel") } },
+        )
+        is UpdateUi.Install -> LaunchedEffect(u) {
+            // Android installs it over this app (same signing key) after the user confirms; the app then restarts.
+            if (vm.updater.canInstall()) {
+                activity?.startActivity(vm.updater.installIntent(u.file))
+                vm.dismissUpdate()
+            } else {
+                activity?.startActivity(vm.updater.permissionIntent())
+                vm.needInstallPermission(u)
+            }
+        }
+        is UpdateUi.NeedsPermission -> AlertDialog(
+            onDismissRequest = vm::dismissUpdate,
+            title = { Text("Allow installing updates") },
+            text = { Text("Android asks you to allow this app to install updates. Turn on \"Allow from this source\", press Back, then tap Continue.") },
+            confirmButton = { TextButton(onClick = vm::retryInstall) { Text("Continue") } },
+            dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text("Cancel") } },
+        )
+        is UpdateUi.Failed -> AlertDialog(
+            onDismissRequest = vm::dismissUpdate,
+            icon = { Icon(Icons.Rounded.ErrorOutline, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Update failed") },
+            text = { Text(u.message) },
+            confirmButton = { TextButton(onClick = vm::dismissUpdate) { Text("OK") } },
+        )
     }
 }
 

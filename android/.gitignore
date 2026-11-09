@@ -12,3 +12,7 @@ dist/
 
 # The published download (linked from the README)
 !releases/vinayaka-finance.apk
+
+# Workbook import tool: input workbook and output (contain real names and numbers, never commit)
+import-in/
+import-out/

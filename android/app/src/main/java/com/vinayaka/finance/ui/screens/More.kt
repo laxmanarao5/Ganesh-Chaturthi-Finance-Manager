@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Summarize
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
@@ -57,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.vinayaka.finance.BuildConfig
 import com.vinayaka.finance.data.Prefs
 import com.vinayaka.finance.data.ThemeMode
 import com.vinayaka.finance.data.model.Role
@@ -125,6 +127,8 @@ fun MoreScreen(vm: AppViewModel, prefs: Prefs, nav: NavController) {
         NavTile(Icons.Rounded.Sync, "Sync & data", if (dirty > 0) "$dirty change${if (dirty == 1) "" else "s"} waiting to be sent" else "Compare with the Google Sheet") { nav.navigate("sync") }
         if (canEdit) NavTile(Icons.Rounded.UploadFile, "Import from Excel or CSV", "Bring in old records, split into years automatically") { nav.navigate("import") }
         if (prefs.role.canManageUsers) NavTile(Icons.Rounded.Group, "Users", "Who can use the app: Viewers, Editors and Admins") { nav.navigate("users") }
+
+        NavTile(Icons.Rounded.SystemUpdate, "App version ${BuildConfig.VERSION_NAME}", "Check GitHub for a newer version") { vm.checkForUpdate(manual = true) }
 
         SectionTitle("Appearance")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

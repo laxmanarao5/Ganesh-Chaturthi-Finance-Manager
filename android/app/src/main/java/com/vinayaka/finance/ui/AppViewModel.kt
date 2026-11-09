@@ -3,6 +3,7 @@ package com.vinayaka.finance.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.vinayaka.finance.BuildConfig
 import com.vinayaka.finance.VinayakaApp
 import com.vinayaka.finance.data.Access
 import com.vinayaka.finance.data.ContactView
@@ -18,6 +19,8 @@ import com.vinayaka.finance.data.sharing.SharingReport
 import com.vinayaka.finance.data.sharing.SheetSharingService
 import com.vinayaka.finance.data.sheets.GoogleSheetsGateway
 import com.vinayaka.finance.data.sheets.SheetsApiException
+import com.vinayaka.finance.data.update.UpdateException
+import com.vinayaka.finance.data.update.UpdateInfo
 import com.vinayaka.finance.data.sync.SyncEngine
 import com.vinayaka.finance.data.sync.SyncReport
 import com.vinayaka.finance.domain.Stats
@@ -25,6 +28,8 @@ import com.vinayaka.finance.importer.ImportBundle
 import com.vinayaka.finance.importer.ImportMapper
 import com.vinayaka.finance.importer.ImportPlan
 import com.vinayaka.finance.util.currentYear
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +42,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import java.io.IOException
 
 sealed interface SyncUi {
@@ -52,6 +58,18 @@ sealed interface UsersUi {
     data object Loading : UsersUi
     data class Loaded(val users: List<AppUser>, val hasTab: Boolean) : UsersUi
     data class Failed(val message: String) : UsersUi
+}
+
+sealed interface UpdateUi {
+    data object Idle : UpdateUi
+    data object Checking : UpdateUi
+    data object UpToDate : UpdateUi
+    data class Available(val info: UpdateInfo) : UpdateUi
+    data class Downloading(val info: UpdateInfo, val percent: Int) : UpdateUi
+    /** Downloaded and checked: the screen now opens Android's installer. */
+    data class Install(val info: UpdateInfo, val file: File) : UpdateUi
+    data class NeedsPermission(val info: UpdateInfo, val file: File) : UpdateUi
+    data class Failed(val message: String) : UpdateUi
 }
 
 sealed interface SignOutUi {
@@ -419,6 +437,68 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun dismissSync() { _sync.value = SyncUi.Idle }
+
+    // ------------------------------------------------------------ app updates (from the public GitHub repo)
+    private val _update = MutableStateFlow<UpdateUi>(UpdateUi.Idle)
+    val update: StateFlow<UpdateUi> = _update.asStateFlow()
+    val updater get() = c.updater
+    private var autoChecked = false
+    private var updateJob: Job? = null
+
+    /** Compares the installed version with the one published on GitHub. The automatic check (once per launch) stays silent unless there is an update. */
+    fun checkForUpdate(manual: Boolean) {
+        if (!manual) { if (autoChecked) return; autoChecked = true }
+        if (_update.value is UpdateUi.Checking || _update.value is UpdateUi.Downloading) return
+        updateJob = viewModelScope.launch {
+            if (manual) _update.value = UpdateUi.Checking
+            try {
+                val info = c.updater.check(BuildConfig.VERSION_CODE)
+                _update.value = when {
+                    info != null -> UpdateUi.Available(info)
+                    manual -> UpdateUi.UpToDate
+                    else -> UpdateUi.Idle
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _update.value = if (manual) UpdateUi.Failed(updateError(e)) else UpdateUi.Idle
+            }
+        }
+    }
+
+    /** "Update now": downloads the APK, then the screen opens Android's installer. */
+    fun startUpdate() {
+        val info = (_update.value as? UpdateUi.Available)?.info ?: return
+        updateJob = viewModelScope.launch {
+            _update.value = UpdateUi.Downloading(info, 0)
+            try {
+                val file = c.updater.download(info) { pct ->
+                    val cur = _update.value
+                    if (cur is UpdateUi.Downloading && cur.percent != pct) _update.value = cur.copy(percent = pct)
+                }
+                _update.value = UpdateUi.Install(info, file)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _update.value = UpdateUi.Failed(updateError(e))
+            }
+        }
+    }
+
+    /** Android needs the user to allow installs from this app first; after they did, carry on. */
+    fun needInstallPermission(install: UpdateUi.Install) { _update.value = UpdateUi.NeedsPermission(install.info, install.file) }
+    fun retryInstall() { (_update.value as? UpdateUi.NeedsPermission)?.let { _update.value = UpdateUi.Install(it.info, it.file) } }
+
+    fun dismissUpdate() {
+        updateJob?.cancel()
+        _update.value = UpdateUi.Idle
+    }
+
+    private fun updateError(e: Throwable) = when (e) {
+        is UpdateException -> e.message ?: "The update failed."
+        is IOException -> "No internet connection. Try again when you are online."
+        else -> e.message ?: "The update failed."
+    }
 
     // ------------------------------------------------------------ exit
     private val _exit = MutableStateFlow<ExitUi>(ExitUi.Idle)
