@@ -19,11 +19,12 @@ The APK in `android/releases/` is replaced each time a new version is built.
 
 | Folder | What it is |
 |---|---|
-| [`android/`](android) | **The current app** (this README). Kotlin and Jetpack Compose, with its own build in Docker |
-| `frontend/`, `backend/` | The earlier web app and Flask/DynamoDB server. Stopped because running a server costs money; kept for reference |
+| [`android/`](android) | **The Android app** (this README). Kotlin and Jetpack Compose, with its own build in Docker |
+| [`frontend/`](frontend) | **The web portal**: the same screens and the same Google sign-in on any phone or computer, with no sync (changes go straight to the Google Sheet). Static site, nothing to pay for |
+| `backend/` | The earlier Flask/DynamoDB server. Stopped because running a server costs money; kept for reference |
 | `mobile/` | An earlier React Native scaffold. Unused |
 
-Everything below is about the Android app, so run its commands from inside `android/`.
+The sections below are about the Android app, so run its commands from inside `android/`. The portal has its own [README](frontend/README.md).
 
 ---
 

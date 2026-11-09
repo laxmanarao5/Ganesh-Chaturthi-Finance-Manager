@@ -1,1 +1,0 @@
-export const categories = ['Children','Youth','Villagers','Other villagers','Fans']

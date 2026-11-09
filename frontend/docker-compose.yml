@@ -1,0 +1,17 @@
+# Run from frontend/:  docker compose run --rm portal npm ci      (once)
+#                      docker compose run --rm portal npm test
+#                      docker compose run --rm portal npm run build
+#                      docker compose run --rm --service-ports portal npm run dev     (http://localhost:5173)
+# The repo root is mounted so the build can read ../android/secrets.properties (Sheet link + Google client id).
+services:
+  portal:
+    build: .
+    image: vinayaka-portal-build
+    working_dir: /workspace/frontend
+    volumes:
+      - ..:/workspace
+      - portal_node_modules:/workspace/frontend/node_modules
+    ports:
+      - "5173:5173"
+volumes:
+  portal_node_modules:
