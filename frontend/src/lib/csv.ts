@@ -73,7 +73,15 @@ export function peopleCsv(entries: Entry[]): string {
 
 /** Hands the browser a file to save (with a BOM so Excel reads it as UTF-8). */
 export function downloadText(fileName: string, text: string) {
-  const blob = new Blob(['﻿', text], { type: 'text/csv;charset=utf-8' })
+  saveBlob(fileName, new Blob(['﻿', text], { type: 'text/csv;charset=utf-8' }))
+}
+
+/** Hands the browser a binary file to save (the Excel report). */
+export function downloadBytes(fileName: string, bytes: Uint8Array<ArrayBuffer>, mime: string) {
+  saveBlob(fileName, new Blob([bytes], { type: mime }))
+}
+
+function saveBlob(fileName: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

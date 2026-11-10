@@ -29,6 +29,26 @@ export function parseAmountToPaise(text: string): number | null {
   return rupees * 100 + paise
 }
 
+/**
+ * Like parseAmountToPaise but a leading minus is allowed: on Expenditure, something returned to the shop is entered as -1610.
+ * Only Expenditure takes a negative amount; income never does.
+ */
+export function parseSignedAmountToPaise(text: string): number | null {
+  const t = text.trim()
+  const negative = t.startsWith('-') || t.startsWith('−')
+  const v = parseAmountToPaise(negative ? t.slice(1) : t)
+  if (v === null) return null
+  return negative && v !== 0 ? -v : v
+}
+
+/** How an amount reads in a list, and whether it is money coming in (green). A negative Expenditure is a return: "+₹1,610" in green. */
+export function amountLabel(isIncome: boolean, amount: number): { text: string; moneyIn: boolean } {
+  if (amount === 0) return { text: 'In kind', moneyIn: isIncome }
+  if (!isIncome && amount < 0) return { text: '+' + formatRupees(-amount), moneyIn: true }
+  if (isIncome) return { text: '+' + formatRupees(amount), moneyIn: true }
+  return { text: '−' + formatRupees(amount), moneyIn: false }
+}
+
 /** Paise as the number written in the Sheet: whole rupees stay whole, otherwise two decimals. */
 export function paiseToSheetNumber(paise: number): number {
   return paise % 100 === 0 ? paise / 100 : Number((paise / 100).toFixed(2))

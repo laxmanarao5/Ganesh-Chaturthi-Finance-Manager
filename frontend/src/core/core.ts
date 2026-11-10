@@ -11,7 +11,9 @@ import {
   contactHash, contactRowId, entryHash, isDeleted, newId, ROLES,
   type AppUser, type Contact, type Entry, type EntryType, type Role,
 } from '../lib/model'
-import { reconcileSharing, type SharingReport, type SheetSharing } from '../lib/sharing'
+import { reconcileSharing, reportLines, type SharingReport, type SheetSharing } from '../lib/sharing'
+import { buildReport, type Report, type ReportLang } from '../lib/report'
+import type { ReportPublisher } from '../lib/googleReport'
 import { ConflictError, SheetsError, type SheetsApi } from '../lib/sheetsApi'
 import { SessionExpired, type GoogleAuth, type Profile } from '../lib/auth'
 import { parseCsv } from '../lib/csv'
@@ -49,7 +51,17 @@ export interface AppState {
   working: boolean
   sharing: { report: SharingReport | null; error: string | null } | null
   usersLoading: boolean
+  /** The report that was last generated; the report screen shows it. */
+  report: Report | null
+  reportShare: ReportShare
 }
+
+/** Progress of "Share with Google" on the report screen. */
+export type ReportShare =
+  | { status: 'idle' }
+  | { status: 'working' }
+  | { status: 'done'; url: string; lines: string[] }
+  | { status: 'failed'; message: string }
 
 export interface CoreDeps {
   sheets: SheetsApi
@@ -59,6 +71,12 @@ export interface CoreDeps {
   clock?: () => number
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null
   sheetUrl?: string
+  /** Publishes a finished report as a new Google Sheet. */
+  reports?: ReportPublisher
+  /** The Drive client for a file that was just created. */
+  fileSharing?: (fileId: string) => Promise<SheetSharing>
+  /** Asks for Drive access (a consent pop-up the first time), so it must be called straight from a click. */
+  driveReady?: () => Promise<void>
 }
 
 export interface EntryInput {
@@ -99,6 +117,7 @@ export class Core {
       busy: 0, refreshing: false, lastLoaded: null, toast: null,
       theme: this.read(THEME_KEY, 'system') as ThemeMode, myName: this.read(NAME_KEY, ''),
       sessionExpired: false, working: false, sharing: null, usersLoading: false,
+      report: null, reportShare: { status: 'idle' },
     }
   }
 
@@ -216,6 +235,7 @@ export class Core {
     this.set({
       phase: 'signedOut', profile: null, role: 'VIEWER', users: null, entries: {}, contacts: [], contactsLoaded: false,
       years: [], lastLoaded: null, authError: null, accessError: null, sessionExpired: false, sharing: null,
+      report: null, reportShare: { status: 'idle' },
     })
   }
 
@@ -286,6 +306,7 @@ export class Core {
 
   async addEntry(input: EntryInput): Promise<boolean> {
     const r = await this.runWrite(async () => {
+      if (input.amount < 0 && input.type !== 'EXPENDITURE') throw new Error('Only Expenditure can have a negative amount (a return).')
       const now = this.now()
       const e: Entry = {
         id: newId(), type: input.type, year: Number(input.date.slice(0, 4)), date: input.date,
@@ -316,11 +337,14 @@ export class Core {
   }
 
   async updateEntry(entry: Entry, c: Omit<EntryInput, 'type'>): Promise<boolean> {
-    const r = await this.runWrite(() => this.mutateEntry(entry, (cur) => ({
-      ...cur, date: c.date, category: c.category.trim(), name: c.name.trim(), description: c.description.trim(),
-      amount: c.amount, person: c.person.trim(), updatedBy: this.who, updatedAt: this.now(), rev: cur.rev + 1,
-      id: cur.hadId ? cur.id : newId(), createdBy: cur.createdBy || this.who, createdAt: cur.createdAt || this.now(),
-    })))
+    const r = await this.runWrite(() => this.mutateEntry(entry, (cur) => {
+      if (c.amount < 0 && cur.type !== 'EXPENDITURE') throw new Error('Only Expenditure can have a negative amount (a return).')
+      return {
+        ...cur, date: c.date, category: c.category.trim(), name: c.name.trim(), description: c.description.trim(),
+        amount: c.amount, person: c.person.trim(), updatedBy: this.who, updatedAt: this.now(), rev: cur.rev + 1,
+        id: cur.hadId ? cur.id : newId(), createdBy: cur.createdBy || this.who, createdAt: cur.createdAt || this.now(),
+      }
+    }))
     return r.ok
   }
 
@@ -513,6 +537,46 @@ export class Core {
   }
 
   dismissSharing() { this.set({ sharing: null }) }
+
+  // ------------------------------------------------------------------------------------------ annual report
+  /** Builds the report from the Sheet's current records for [year]. Anyone may look at it: it only uses data they can already see. */
+  async generateReport(year: number, lang: ReportLang): Promise<void> {
+    await this.loadYear(year, true)
+    this.set({ report: buildReport(this.state.entries[year] ?? [], year, lang), reportShare: { status: 'idle' } })
+  }
+
+  closeReport() { this.set({ report: null, reportShare: { status: 'idle' } }) }
+  dismissReportShare() { this.set({ reportShare: { status: 'idle' } }) }
+
+  /**
+   * Editors and Admins: creates the report as a new Google Sheet owned by the person who shares it, then shares it with everyone on the Users list
+   * (Viewers can view it, Editors and Admins can edit it): the same rule as the committee's own Sheet.
+   */
+  async shareReportWithGoogle(): Promise<void> {
+    const report = this.state.report
+    if (!report || this.state.reportShare.status === 'working') return
+    if (!this.canEdit) { this.toast('Only an Editor or Admin can share the report as a Google Sheet.', { error: true }); return }
+    this.set({ reportShare: { status: 'working' } })
+    try {
+      await this.deps.driveReady?.() // first, while the click is fresh: the consent pop-up is blocked otherwise
+      if (!this.deps.reports || !this.deps.fileSharing) throw new Error('Creating Google Sheets is not available here.')
+      const created = await this.deps.reports.create(report)
+      const users = normalizeUsers((await this.deps.sheets.readUsers()) ?? [])
+      const shared = await reconcileSharing(await this.deps.fileSharing(created.id), users, [], [this.who])
+      this.set({ reportShare: { status: 'done', url: created.url, lines: reportLines(shared) } })
+    } catch (e) {
+      this.set({ reportShare: { status: 'failed', message: reportFriendly(e) } })
+    }
+  }
+}
+
+function reportFriendly(e: unknown): string {
+  if (e instanceof SheetsError) {
+    if (e.isForbidden && /has not been used|disabled/i.test(e.message)) return 'The Google Sheets or Google Drive API is switched off for this app\'s Google Cloud project. Turn both on (APIs & Services, Library) and try again.'
+    if (e.isForbidden) return 'Google would not let this account create the report Sheet. Try signing out and in again.'
+  }
+  if (e instanceof TypeError) return 'No internet connection. Try again when you are online.'
+  return e instanceof Error ? e.message : 'Something went wrong while creating the Google Sheet.'
 }
 
 function sharingFriendly(e: unknown): string {

@@ -4,13 +4,17 @@ import { formatRupees, prettyDay } from '../../lib/format'
 import { ENTRY_TYPE_KEYS, ENTRY_TYPES, type EntryType } from '../../lib/model'
 import { Chip, ChipRow, EmptyState, Spinner, YearPicker } from '../components'
 import { useEntries } from '../data'
-import { useYear } from '../hooks'
+import { useCore, useYear, type Route } from '../hooks'
+import { REPORT_LANGS, type ReportLang } from '../../lib/report'
 import { Icon } from '../Icon'
 
-export function ReportsScreen() {
+export function ReportsScreen({ go }: { go: (r: Route) => void }) {
+  const core = useCore()
   const [year, setYear] = useYear()
   const { entries: all, loading } = useEntries(year)
   const [scope, setScope] = useState<EntryType | null>(null)
+  const [lang, setLang] = useState<ReportLang>('TELUGU')
+  const [generating, setGenerating] = useState(false)
   const shown = useMemo(() => all.filter((e) => scope === null || e.type === scope), [all, scope])
   const days = useMemo(() => {
     const m = new Map<string, typeof shown>()
@@ -25,6 +29,18 @@ export function ReportsScreen() {
         <EmptyState icon="report" title={`Nothing to report for ${year}`} hint="Add records first, then come back to export them." />
       ) : (
         <>
+          <div className="card pad note">
+            <b>Annual report · {year}</b>
+            <span>
+              All collections, expenses and the surplus, laid out like the committee's workbook (donation lists, Dakshina, Annadhanam, pooja expenses, abstract).
+              View it here, download it as Excel to share on WhatsApp, or (editors and admins) share it as a Google Sheet with everyone on the Users list.
+            </span>
+            <ChipRow>{REPORT_LANGS.map((l) => <Chip key={l.key} selected={lang === l.key} onClick={() => setLang(l.key)}>{l.label}</Chip>)}</ChipRow>
+            <button type="button" className="btn primary big" disabled={generating}
+              onClick={() => { setGenerating(true); void core.generateReport(year, lang).then(() => { setGenerating(false); go('report') }) }}>
+              {generating ? 'Generating…' : 'Generate report'}
+            </button>
+          </div>
           <ChipRow>
             <Chip selected={scope === null} onClick={() => setScope(null)}>All</Chip>
             {ENTRY_TYPE_KEYS.map((t) => <Chip key={t} selected={scope === t} onClick={() => setScope(t)}>{ENTRY_TYPES[t].label}</Chip>)}

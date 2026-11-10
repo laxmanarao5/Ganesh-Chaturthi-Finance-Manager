@@ -23,8 +23,8 @@ export function useYear(): [number, (y: number) => void] {
   return [year, setYear]
 }
 
-export type Route = 'home' | 'donations' | 'expenses' | 'others' | 'people' | 'contacts' | 'reports' | 'import' | 'users' | 'more'
-const ROUTES: Route[] = ['home', 'donations', 'expenses', 'others', 'people', 'contacts', 'reports', 'import', 'users', 'more']
+export type Route = 'home' | 'donations' | 'expenses' | 'others' | 'people' | 'contacts' | 'reports' | 'report' | 'import' | 'users' | 'more'
+const ROUTES: Route[] = ['home', 'donations', 'expenses', 'others', 'people', 'contacts', 'reports', 'report', 'import', 'users', 'more']
 
 function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, '')

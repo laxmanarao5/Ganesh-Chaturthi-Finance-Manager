@@ -22,6 +22,9 @@ The old `frontend/` (React app talking to the stopped AWS API) was replaced in f
 * **All calculations happen in the app (and the portal).** The Sheet holds plain rows only.
 * **A gift in kind (amount 0) is never "not collected"**: `isPending` = income AND no collector AND amount > 0. In-kind rows show "In kind" and never ask for a collector. "Still to collect" ignores them.
 * **No swipe to delete.** Deleting is a button in the edit sheet behind a confirmation (with Undo after). Deleted rows stay in the Sheet as tombstones.
+* **Expenditure may be negative (a return to the shop, e.g. -1610).** It reduces what was spent, and is shown as "+₹1,610" in green. Only Expenditure: income and in-kind never take a minus. The editor has a "Return / refund" chip because phone number pads often have no minus key. Import accepts negatives on Expenditure rows only.
+* **Users page is a plain list; adding or editing a user is a pop-up** (like Add donation). Tapping a user opens it (role, remove with confirmation); the built-in admin cannot be opened. Changes are saved with "Save and update sharing".
+* **Annual report** (More, Reports, Generate report): see "Annual report" below. Owner decisions: Download gives an Excel file that can be shared on WhatsApp; "Share with Google" creates a new Google Sheet and shares it with all app users; **Editors and Admins may share with Google**, every role may view and download; Telugu by default (English switch); last year's balance/interest block is deliberately left out.
 * **Ask before anything outward-facing**: pushing, publishing, sharing the Sheet. Commit/push only when the owner says so. The repo is public.
 * Deferred by the owner (not built): T-shirts section, cash check. "Remaining I will review and tell."
 
@@ -62,6 +65,15 @@ The old `frontend/` (React app talking to the stopped AWS API) was replaced in f
 Sheet tabs: ledger tab per year `Date | Type | Category | Name | Description | Amount | Collected / Paid by | Created by` + grey system columns (`id | rev | hash | created_at | updated_by | updated_at | deleted_at`);
 `Contacts`: `Name | Number | Who calls | Year | Called | Remarks` + system columns, one row per contact per year; `Users`: `Name | Email | Role`.
 
+## Annual report (app: `report/` package; portal: `src/lib/report.ts`, `xlsx.ts`, `googleReport.ts`)
+Built from one year's records; the same grid of rows feeds the on-screen view, the Excel file and the Google Sheet, so they never disagree.
+* **Layout = the committee's own workbook** (sample `2026 Ganesh utsavalu - 2026 collections and Expences.xlsx`, kept outside the repo): tabs `Youth Donations`, `Villagers Donations`, `Children Donations`, `OUTSIDERS DONATIONS`, `Dakshina`, `Annadanam Donation`, `Annadanam Expenditure`, `Expenditure` (pooja), `ABSTRACT` (opens first). Telugu headings are the workbook's wording (`Labels` in `ReportModel.kt` / `LABELS` in `report.ts`; keep both in step).
+* **ABSTRACT** = collections by category (Youth, Villagers, Children, Other villagers) + Annadhanam block (donations, expenses, surplus) + Other income section (the Dakshina total first, then each other Other-income row the committee added, then the Annadhanam surplus) = all collections; minus pooja expenses (returns reduce it) = this year's surplus. Donations count at their listed amount even with no collector (the committee only lists what it received); a note says how much has no collector yet. Dakshina is an Other-income row named Dakshina/Dhakshina/దక్షిణ (letters and combining marks compared, since Telugu vowel signs are marks).
+* **Excel** is written by hand (`XlsxWriter.kt`, `xlsx.ts` with a tiny stored-zip writer): values only, no formulas, inline strings, real numbers. Android: "Download Excel" uses the system file picker (`CreateDocument`), "Share file" the share sheet (WhatsApp) via FileProvider. Portal: Blob download, plus the Web Share API where the browser supports files.
+* **Share with Google** (Editors + Admins): creates a new Spreadsheet through `POST /v4/spreadsheets` owned by the sharer (one token with Sheets + Drive scopes, so one consent), reads the Users list, then `reconcile`s Drive sharing on that new file (Viewer: reader, Editor/Admin: writer; the sharer stays owner). Consent must be asked first, from the click.
+* **Not included on purpose**: the sample's bottom block (last year's balance, amount lent, 1.5% monthly interest, mandapam fund, named borrowers). Those are committee decisions made outside the app; ask the owner for exact rules before adding, and never put those names in the repo.
+* Year comparison columns (2025, 2024 beside 2026 as in the sample) are not built; the report is for the selected year.
+
 ## Build and release (everything in Docker, from `android/`)
 ```bash
 export PATH="$PATH:/c/Program Files/Docker/Docker/resources/bin"       # Windows host only
@@ -99,8 +111,9 @@ Same screens and rules as the app, for phones and desktops (bottom bar on phones
 * The published build is the **debug** variant (signed with the real key). A minified release variant exists in Gradle but is untested.
 * Releases are files in the repo, not GitHub Releases (no `gh` and no token here). Each APK adds about 23 MB to git history.
 * Phones still on 1.0 have no updater; they need one manual install.
-* **Portal verified**: `npm test` (64 tests: ported rules, the Google/Drive clients against a scripted fake, the whole core against an in-memory Sheet), type-check, production build, and a click-through of the UI in a browser before demo mode was removed (add, delete with confirm and Undo, every screen, phone and desktop layouts); after that only the logic tests and the build were re-run.
+* **Portal verified**: `npm test` (88 tests, earlier 64: ported rules, the Google/Drive clients against a scripted fake, the whole core against an in-memory Sheet), type-check, production build, and a click-through of the UI in a browser before demo mode was removed (add, delete with confirm and Undo, every screen, phone and desktop layouts); after that only the logic tests and the build were re-run.
   **Portal not verified**: real Google sign-in, real Sheets/Drive calls from a browser, and the phone-versus-portal merge on a real Sheet. The Authorized JavaScript origins must be added first.
+* **Annual report / returns / Users pop-up**: Android compiles and its tests pass (ReportTest, NegativeAmountTest, ...); the portal's 88 tests pass and the portal UI was clicked through in a browser on made-up data (return entry and green label, report view and Excel build, Editor share, Viewer limits, Users pop-up). **Not verified on real Google or on a phone**: opening the Excel file in Excel/WhatsApp, creating the real Google Sheet and sharing it (Sheets + Drive APIs must be enabled), the Android layout of the new screens.
 * Phone scanners (e.g. Realme) may warn about the APK because of the install permission used by the in-app updater; it is a false positive. Version history: 1.1.0 updater, 1.2.0 no swipe-to-delete, 1.2.1 gifts in kind are never "not collected".
 
 ## Traps already hit
@@ -114,6 +127,10 @@ Same screens and rules as the app, for phones and desktops (bottom bar on phones
 * Browser pane screenshots lag or come out blank while the pane is hidden; show it (`show_pane preview`) and prefer DOM checks (`javascript_tool`, `get_page_text`). Emulated viewports apply media queries correctly even when an early screenshot looks wrong.
 * `git rm -r frontend` stages deletions: unstage (`git reset HEAD -- frontend`) before committing an unrelated release, and commit with explicit paths (`git commit -- <paths>`) so portal work is not swept into an APK release.
 * Google Identity Services pop-ups are blocked unless started from a click: ask for the Drive scope first in the Save handler, before any network call.
+* **Privacy when inspecting the owner's workbooks**: never print "the first few rows" of a donor sheet: in the sample, donor names start at row 3. Show only titles, column headers and total rows (labels), or counts. A masked preview once leaked names into tool output; the saved copy was deleted. Keep sample workbooks only in git-ignored `android/import-in/` and delete them when done.
+* The Vite dev server in Docker does not see file edits made on Windows (bind-mount events do not arrive): restart the container to pick up changes, or edits seem to have no effect.
+* `frontend/harness.html` + `src/harness.tsx` (git-ignored, local only) run the real portal screens on made-up in-memory data (`?as=<email>` picks the role) for browser checks, since demo mode was removed. They are not part of the build.
+* The Android bottom-sheet/`Decimal` keyboards have no minus key; any "can be negative" field needs a toggle chip as well as typing.
 
 ## Conventions
 * Kotlin, Compose, no XML layouts. Money is `Long` paise; format with `formatRupees`.

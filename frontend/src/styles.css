@@ -272,3 +272,16 @@ progress { width: 100%; height: 8px; accent-color: var(--primary); margin-bottom
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes rise { from { transform: translateY(24px); opacity: .6; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+/* ---------- annual report ---------- */
+.report-scroll { overflow: auto; max-height: 68dvh; border-radius: var(--r-m); border: 1px solid var(--outline-variant); background: var(--bg); }
+.report-table { border-collapse: collapse; table-layout: fixed; font-size: .9rem; }
+.report-table td { border: 1px solid var(--outline-variant); padding: 5px 8px; vertical-align: middle; overflow-wrap: anywhere; }
+.report-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.report-table .rr-title td { background: var(--primary-container); color: var(--on-primary-container); font-weight: 700; font-size: 1.02rem; text-align: center; }
+.report-table .rr-header td { background: var(--c-high); font-weight: 700; text-align: center; }
+.report-table .rr-total td { background: var(--c); font-weight: 700; }
+.report-table .rr-section td { border: 0; font-weight: 700; padding-top: 10px; }
+.report-table .rr-note td { border: 0; font-size: .85rem; color: var(--on-surface-variant); }
+.report-table .rr-blank td { border: 0; padding: 3px; }
+.badge.soft { background: var(--c-high); color: var(--on-surface-variant); }

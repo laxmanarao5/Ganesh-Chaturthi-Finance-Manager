@@ -10,13 +10,14 @@ import { HomeScreen } from './ui/screens/Home'
 import { ImportScreen } from './ui/screens/ImportScreen'
 import { MoreScreen } from './ui/screens/More'
 import { PeopleScreen } from './ui/screens/People'
+import { ReportScreen } from './ui/screens/ReportScreen'
 import { ReportsScreen } from './ui/screens/Reports'
 import { UsersScreen } from './ui/screens/Users'
 import { CheckingAccessScreen, NoAccessScreen, WelcomeScreen } from './ui/screens/Welcome'
 
 const TITLES: Record<Route, string> = {
   home: 'Vinayaka Finance', donations: 'Donations', expenses: 'Expenditure', others: 'Other income', people: 'Collected vs spent',
-  contacts: 'Contacts', reports: 'Reports', import: 'Import from CSV', users: 'Users', more: 'More',
+  contacts: 'Contacts', reports: 'Reports', report: 'Annual report', import: 'Import from CSV', users: 'Users', more: 'More',
 }
 
 interface NavItem { route: Route; label: string; icon: IconName; tab?: boolean; needs?: 'edit' | 'admin' }
@@ -63,7 +64,8 @@ function Screen({ route, go }: { route: Route; go: (r: Route) => void }) {
     case 'others': return <EntryListScreen type="OTHER" />
     case 'people': return <PeopleScreen />
     case 'contacts': return <ContactsScreen />
-    case 'reports': return <ReportsScreen />
+    case 'reports': return <ReportsScreen go={go} />
+    case 'report': return <ReportScreen />
     case 'import': return <ImportScreen />
     case 'users': return <UsersScreen />
     case 'more': return <MoreScreen go={go} />

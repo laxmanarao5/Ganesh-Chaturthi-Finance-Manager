@@ -8,12 +8,12 @@ written straight to the committee's Google Sheet, and the Sheet is read fresh wh
 | Screen | What it does |
 |---|---|
 | Home | Cash in hand, collected / spent / still to collect, where the money came from and went, latest records |
-| Donations, Spent, Other income | Add, edit, delete (with confirmation and Undo), search, filter by month, category and collector, "Not collected" |
+| Donations, Spent, Other income | Add, edit, delete (with confirmation and Undo), search, filter by month, category and collector, "Not collected". Spent accepts a negative amount (a return), shown as +₹ in green |
 | People | Collected vs spent per person |
 | Contacts | The people to call, a "called" tick for each year, call link |
-| Reports | Day-wise totals, CSV download (records, day-wise, by person) |
+| Reports | Day-wise totals, CSV download (records, day-wise, by person), and the **annual report**: the committee workbook's tabs and ABSTRACT in Telugu or English, viewable here, downloadable as Excel (share it on WhatsApp), and shareable with Google as a new Sheet for everyone on the Users list (Editors and Admins) |
 | Import | CSV files (the committee's lists, or a file exported from the app or portal); importing twice adds nothing |
-| Users (admins) | Who may use it (Viewer / Editor / Admin) and who the Sheet is shared with, through the Drive API |
+| Users (admins) | A list of who may use it (Viewer / Editor / Admin); "Add user" and each user open a pop-up. Saving also updates who the Sheet is shared with, through the Drive API |
 
 Only emails on the Sheet's `Users` tab get in, with the same roles as the app. **Gifts in kind (amount 0) are never "not collected".**
 
@@ -26,7 +26,7 @@ Run from this folder. On this Windows host first: `export PATH="$PATH:/c/Program
 ```bash
 docker compose build                                            # once
 docker compose run --rm portal npm install                      # once
-docker compose run --rm portal npm test                         # 64 tests
+docker compose run --rm portal npm test                         # 88 tests
 docker compose run --rm portal npm run build                    # writes dist/
 docker compose run --rm --service-ports portal npm run dev      # http://localhost:5173
 ```

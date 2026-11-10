@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { ENTRY_TYPES, isPending, type Entry, type EntryType } from '../lib/model'
-import { formatRupees, prettyDay } from '../lib/format'
+import { amountLabel, formatRupees, prettyDay } from '../lib/format'
 import { Icon, type IconName } from './Icon'
 import { useApp, useCore } from './hooks'
 
@@ -104,6 +104,7 @@ export function PersonChips({ people, value, onChange, noneLabel }: { people: st
 /** One record. For income, the line under the name says who collected it, or "Not collected" (tap it to say who). */
 export function EntryRow({ entry, onClick, onAssign }: { entry: Entry; onClick?: () => void; onAssign?: () => void }) {
   const info = ENTRY_TYPES[entry.type]
+  const label = amountLabel(info.isIncome, entry.amount)
   const sub = [entry.category.trim(), entry.description.trim(), prettyDay(entry.date)].filter(Boolean).join(' · ')
   return (
     <div className={`card entry${onClick ? ' clickable' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
@@ -122,9 +123,8 @@ export function EntryRow({ entry, onClick, onAssign }: { entry: Entry; onClick?:
           </button>
         ) : null}
       </div>
-      <div className={`entry-amount ${info.isIncome ? 'income' : 'expense'}`}>
-        {entry.amount === 0 ? 'In kind' : (info.isIncome ? '+' : '−') + formatRupees(entry.amount)}
-      </div>
+      {/* A return on Expenditure (negative) is money coming back in: "+₹1,610" in green. */}
+      <div className={`entry-amount ${label.moneyIn ? 'income' : 'expense'}`}>{label.text}</div>
     </div>
   )
 }

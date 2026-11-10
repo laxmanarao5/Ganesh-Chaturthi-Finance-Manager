@@ -2,7 +2,7 @@
 // (importer/ImportMapper.kt): a CSV is one "sheet" whose name is the file name, so "Contacts.csv" is the contact list,
 // "Youth Donations.csv" is the Youth donations list, and any other name is read by its Type column.
 import { canonicalPerson } from './stats'
-import { isoToSerial, parseAmountToPaise, parseDateFlexible, serialToIso } from './format'
+import { isoToSerial, parseAmountToPaise, parseDateFlexible, parseSignedAmountToPaise, serialToIso } from './format'
 import { contactRowId, ENTRY_TYPES, isDeleted, newId, typeFromSheet, type Contact, type Entry, type EntryType } from './model'
 
 export interface SheetData { name: string; rows: string[][] }
@@ -47,7 +47,8 @@ const KNOWN: SheetSpec[] = [
 ]
 const KNOWN_BY_KEY = new Map(KNOWN.map((s) => [norm(s.label), s]))
 
-const amountOf = (s: string) => parseAmountToPaise(s.replace(/rs\./gi, ''))
+/** [allowNegative] is for Expenditure only: a purchase that was returned is written as -1610. */
+const amountOf = (s: string, allowNegative = false) => (allowNegative ? parseSignedAmountToPaise : parseAmountToPaise)(s.replace(/rs\./gi, ''))
 
 function dateOf(s: string): string | null {
   const t = s.trim()
@@ -115,7 +116,7 @@ function readKnown(sheet: SheetData, spec: SheetSpec, person: (s: string) => str
     // Dhakshina has no name column: its name is the sheet's own name.
     const name = cName >= 0 ? tcell(r, cName) : spec.label
     if (!name || name.toLowerCase() === 'total') continue
-    const amount = amountText === '' && !spec.amountRequired ? 0 : amountOf(amountText)
+    const amount = amountText === '' && !spec.amountRequired ? 0 : amountOf(amountText, spec.type === 'EXPENDITURE')
     if (amount === null) { skipped++; continue }
     const dateText = tcell(r, cDate)
     const date = dateOf(dateText)
@@ -167,7 +168,7 @@ function readGeneric(sheet: SheetData, person: (s: string) => string, out: Impor
   for (const r of sheet.rows.slice(h + 1)) {
     if (r.every((c) => c.trim() === '')) continue
     const type = typeFromSheet(tcell(r, cType))
-    const amount = amountOf(tcell(r, cAmount))
+    const amount = amountOf(tcell(r, cAmount), type === 'EXPENDITURE')
     if (type === null || amount === null) { skipped++; continue }
     out.push({ type, category: tcell(r, cCategory), date: dateOf(tcell(r, cDate)), name: tcell(r, cName), description: tcell(r, cDesc), amount, person: person(tcell(r, cPerson)) })
   }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ENTRY_TYPES, ROLES, isPending, type Entry, type EntryType } from '../../lib/model'
-import { formatRupees, monthNames, monthOf, paiseToInput, parseAmountToPaise, prettyDay } from '../../lib/format'
+import { formatRupees, monthNames, monthOf, paiseToInput, parseAmountToPaise, parseSignedAmountToPaise, prettyDay } from '../../lib/format'
 import { Chip, ChipRow, ConfirmDialog, EmptyState, EntryRow, Modal, PersonChips, PillSelect, Spinner, YearPicker, typeIcon } from '../components'
 import { useEntries, usePeople } from '../data'
 import { useApp, useCore, useYear } from '../hooks'
@@ -8,9 +8,9 @@ import { Icon } from '../Icon'
 
 const NOT_COLLECTED = '\u0000none'
 
-/** Keep digits and at most one point with two decimals. */
-export function cleanAmount(input: string): string {
-  let out = ''
+/** Keep digits and at most one point with two decimals; a leading minus survives only when [allowNegative] (Expenditure returns). */
+export function cleanAmount(input: string, allowNegative = false): string {
+  let out = allowNegative && (input.startsWith('-') || input.startsWith('−')) ? '-' : ''
   let seenDot = false
   let decimals = 0
   for (const ch of input) {
@@ -171,10 +171,11 @@ export function EntryEditor({ type, year, existing, people, defaultCategory, def
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const amount = parseAmountToPaise(amountText)
+  const canReturn = type === 'EXPENDITURE' // only spending can be negative: something taken back to the shop
+  const amount = canReturn ? parseSignedAmountToPaise(amountText) : parseAmountToPaise(amountText)
   const inKind = type === 'DONATION' && description.trim() !== ''
   const dateOk = date.startsWith(`${year}-`) && !Number.isNaN(Date.parse(date))
-  const valid = name.trim() !== '' && amount !== null && (amount > 0 || (amount === 0 && inKind)) && dateOk
+  const valid = name.trim() !== '' && amount !== null && (canReturn ? amount !== 0 : amount > 0 || (amount === 0 && inKind)) && dateOk
   const options = [...new Set([...info.categories, ...(existing?.category.trim() ? [existing.category.trim()] : [])])]
 
   async function submit() {
@@ -192,9 +193,14 @@ export function EntryEditor({ type, year, existing, people, defaultCategory, def
         <label className="field"><span>{info.detailLabel}</span><textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
         <label className="field">
           <span>Amount</span>
-          <div className="prefixed"><i>₹</i><input inputMode="decimal" value={amountText} onChange={(e) => setAmountText(cleanAmount(e.target.value))} /></div>
+          <div className="prefixed"><i>₹</i><input inputMode={canReturn ? 'text' : 'decimal'} value={amountText} onChange={(e) => setAmountText(cleanAmount(e.target.value, canReturn))} /></div>
           {type === 'DONATION' && <small>Leave 0 for a gift in kind (add what it is above)</small>}
+          {canReturn && <small>For something returned, use a negative amount (-1610); it shows as +1610 in green</small>}
         </label>
+        {canReturn && (
+          // Many phone keyboards have no minus key on the number pad, so this chip adds or removes it.
+          <ChipRow><Chip selected={amountText.startsWith('-')} onClick={() => setAmountText((t) => (t.startsWith('-') ? t.slice(1) : `-${t}`))}>Return / refund (money back)</Chip></ChipRow>
+        )}
         {options.length > 0 && (
           <div className="field"><span>Category</span>
             <ChipRow>{options.map((c) => <Chip key={c} selected={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}</ChipRow>
