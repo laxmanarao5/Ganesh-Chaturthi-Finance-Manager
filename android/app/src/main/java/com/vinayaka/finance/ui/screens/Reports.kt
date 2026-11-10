@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinayaka.finance.data.model.EntryType
 import com.vinayaka.finance.export.Exporter
+import com.vinayaka.finance.report.ReportLang
 import com.vinayaka.finance.ui.AppViewModel
 import com.vinayaka.finance.ui.components.EmptyState
 import com.vinayaka.finance.ui.components.YearHeader
@@ -47,8 +48,9 @@ import com.vinayaka.finance.util.formatRupees
 import com.vinayaka.finance.util.prettyDay
 
 @Composable
-fun ReportsScreen(vm: AppViewModel) {
+fun ReportsScreen(vm: AppViewModel, onOpenReport: () -> Unit) {
     var year by remember { mutableIntStateOf(currentYear()) }
+    var lang by remember { mutableStateOf(ReportLang.TELUGU) }
     LaunchedEffect(year) { vm.ensureYear(year) }
     val all by remember(year) { vm.entries(year) }.collectAsStateWithLifecycle(initialValue = emptyList())
     val context = LocalContext.current
@@ -63,6 +65,23 @@ fun ReportsScreen(vm: AppViewModel) {
         if (all.isEmpty()) {
             EmptyState(Icons.Rounded.Summarize, "Nothing to report for $year", "Add records or sync first, then come back to export them.")
             return@Column
+        }
+        Card(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = MaterialTheme.shapes.large,
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Annual report · $year", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(
+                    "All collections, expenses and the surplus, laid out like the committee's workbook (donation lists, Dakshina, Annadhanam, pooja expenses, abstract). " +
+                        "View it here, download it as Excel to share on WhatsApp, or (editors and admins) share it as a Google Sheet with everyone on the Users list.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ReportLang.entries.forEach { l -> FilterChip(selected = lang == l, onClick = { lang = l }, label = { Text(l.label) }) }
+                }
+                Button(onClick = { vm.generateReport(year, lang); onOpenReport() }, modifier = Modifier.fillMaxWidth()) { Text("Generate report") }
+            }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = scope == null, onClick = { scope = null }, label = { Text("All") })

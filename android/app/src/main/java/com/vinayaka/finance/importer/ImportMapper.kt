@@ -6,6 +6,7 @@ import com.vinayaka.finance.data.model.EntryType
 import com.vinayaka.finance.domain.Stats
 import com.vinayaka.finance.util.parseAmountToPaise
 import com.vinayaka.finance.util.parseDateFlexible
+import com.vinayaka.finance.util.parseSignedAmountToPaise
 import com.vinayaka.finance.util.serialToIso
 import java.util.UUID
 
@@ -72,7 +73,9 @@ object ImportMapper {
 
     private fun norm(s: String) = s.lowercase().filter { it.isLetterOrDigit() || it == '/' }
 
-    private fun amountOf(s: String): Long? = parseAmountToPaise(s.replace("Rs.", "", true))
+    /** [allowNegative] is for Expenditure only: a purchase that was returned is written as -1610. */
+    private fun amountOf(s: String, allowNegative: Boolean = false): Long? =
+        s.replace("Rs.", "", true).let { if (allowNegative) parseSignedAmountToPaise(it) else parseAmountToPaise(it) }
 
     private fun dateOf(s: String): String? {
         val t = s.trim()
@@ -144,7 +147,7 @@ object ImportMapper {
             // Dhakshina has no name column: its name is the sheet's own name.
             val name = if (cName >= 0) cell(cName) else spec.label
             if (name.isEmpty() || name.equals("total", true)) continue
-            val amount = if (amountText.isEmpty() && !spec.amountRequired) 0L else amountOf(amountText)
+            val amount = if (amountText.isEmpty() && !spec.amountRequired) 0L else amountOf(amountText, spec.type == EntryType.EXPENDITURE)
             if (amount == null) { skipped++; continue }
             val dateText = cell(cDate)
             val date = dateOf(dateText)
@@ -197,7 +200,7 @@ object ImportMapper {
             fun cell(i: Int) = if (i >= 0) r.getOrNull(i)?.trim().orEmpty() else ""
             if (r.all { it.isBlank() }) continue
             val type = EntryType.fromSheet(cell(cType))
-            val amount = amountOf(cell(cAmount))
+            val amount = amountOf(cell(cAmount), type == EntryType.EXPENDITURE)
             if (type == null || amount == null) { skipped++; continue }
             out += ImportEntry(type, cell(cCategory), dateOf(cell(cDate)), cell(cName), cell(cDesc), amount, person(cell(cPerson)))
         }

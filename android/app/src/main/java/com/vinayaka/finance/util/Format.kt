@@ -27,6 +27,27 @@ fun parseAmountToPaise(text: String): Long? {
     return d.movePointRight(2).setScale(0, RoundingMode.HALF_UP).toLong()
 }
 
+/**
+ * Like [parseAmountToPaise] but a leading minus is allowed: on Expenditure, something returned to the shop is entered as -1610.
+ * Only Expenditure takes a negative amount; income never does.
+ */
+fun parseSignedAmountToPaise(text: String): Long? {
+    val t = text.trim()
+    val negative = t.startsWith("-") || t.startsWith("−")
+    val v = parseAmountToPaise(if (negative) t.drop(1) else t) ?: return null
+    return if (negative) -v else v
+}
+
+/** How an amount reads in a list: [text] and whether it is money coming in (green). A negative Expenditure is a return, so it is "+₹1,610" in green. */
+data class AmountLabel(val text: String, val moneyIn: Boolean)
+
+fun amountLabel(isIncome: Boolean, amount: Long): AmountLabel = when {
+    amount == 0L -> AmountLabel("In kind", isIncome)
+    !isIncome && amount < 0 -> AmountLabel("+" + formatRupees(-amount), true)
+    isIncome -> AmountLabel("+" + formatRupees(amount), true)
+    else -> AmountLabel("−" + formatRupees(amount), false)
+}
+
 /** Paise as the number written in the Sheet: whole rupees stay whole, otherwise two decimals. */
 fun paiseToSheetNumber(paise: Long): Number = if (paise % 100 == 0L) paise / 100 else BigDecimal(paise).movePointLeft(2).toDouble()
 

@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.vinayaka.finance.data.model.Entry
 import com.vinayaka.finance.data.model.EntryType
 import com.vinayaka.finance.ui.theme.LocalMoneyColors
-import com.vinayaka.finance.util.formatRupees
+import com.vinayaka.finance.util.amountLabel
 import com.vinayaka.finance.util.prettyDay
 
 fun typeIcon(type: EntryType): ImageVector = when (type) {
@@ -90,9 +90,11 @@ fun EntryRow(
             }
             Spacer(Modifier.width(8.dp))
             Column(horizontalAlignment = Alignment.End) {
+                val label = amountLabel(entry.type.isIncome, entry.amount)
                 Text(
-                    if (entry.amount == 0L) "In kind" else (if (entry.type.isIncome) "+" else "−") + formatRupees(entry.amount),
-                    color = tint, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium,
+                    label.text,
+                    // A return on Expenditure is money coming back in: green, like income.
+                    color = if (label.moneyIn) money.income else money.expense, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium,
                 )
                 if (entry.dirty) {
                     Icon(Icons.Rounded.CloudOff, "Not synced yet", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)

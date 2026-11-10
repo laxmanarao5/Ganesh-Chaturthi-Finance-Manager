@@ -1,1 +1,3 @@
-Gifts in kind (no money) are no longer counted as not collected, and no collector is asked for them.
+New annual report (Reports, Generate report): view it, download it as Excel to share on WhatsApp, or share it as a Google Sheet with all app users.
+Returns: enter a negative amount on Expenditure (-1610); it shows as +1610 in green.
+Users: Add user opens a pop-up, and users are shown as a list.

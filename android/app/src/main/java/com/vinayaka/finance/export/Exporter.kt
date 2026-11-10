@@ -40,6 +40,19 @@ object Exporter {
         )
     }
 
+    /** Writes a binary file (the Excel report) to the cache and opens Android's share sheet: WhatsApp, Drive, email... */
+    fun shareFile(context: Context, fileName: String, bytes: ByteArray, mime: String) {
+        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+        val file = File(dir, fileName).apply { writeBytes(bytes) }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(send, "Share report").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
     /** Writes [text] to the cache and opens Android's share sheet. */
     fun share(context: Context, fileName: String, text: String) {
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }

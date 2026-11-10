@@ -27,6 +27,9 @@ import com.vinayaka.finance.domain.Stats
 import com.vinayaka.finance.importer.ImportBundle
 import com.vinayaka.finance.importer.ImportMapper
 import com.vinayaka.finance.importer.ImportPlan
+import com.vinayaka.finance.report.Report
+import com.vinayaka.finance.report.ReportBuilder
+import com.vinayaka.finance.report.ReportLang
 import com.vinayaka.finance.util.currentYear
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -86,6 +89,15 @@ sealed interface ExitUi {
 }
 
 data class SharingUi(val report: SharingReport? = null, val error: String? = null)
+
+/** Progress of "Share with Google" on the report screen. */
+sealed interface ReportShareUi {
+    data object Idle : ReportShareUi
+    data object Working : ReportShareUi
+    /** The Google Sheet exists at [url]; [lines] say who it was shared with and what failed. */
+    data class Done(val url: String, val lines: List<String>) : ReportShareUi
+    data class Failed(val message: String) : ReportShareUi
+}
 
 /** Year is not held here: every screen starts on the current year and keeps its own choice. */
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -614,6 +626,55 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         e is SheetsApiException && e.isNotFound -> "Google could not find the Sheet to share. Check the link in the build."
         e is IOException -> "No internet connection. The list is saved; try updating the sharing again when you are online."
         else -> e.message ?: "Something went wrong while changing the Sheet's sharing."
+    }
+
+    // ------------------------------------------------------------ annual report
+    private val _report = MutableStateFlow<Report?>(null)
+    /** The report that was last generated; the report screen shows it. */
+    val report: StateFlow<Report?> = _report.asStateFlow()
+
+    private val _reportShare = MutableStateFlow<ReportShareUi>(ReportShareUi.Idle)
+    val reportShare: StateFlow<ReportShareUi> = _reportShare.asStateFlow()
+
+    /** Builds the report from what is on this phone for [year] (anyone may look at it; it only uses data they can already see). */
+    fun generateReport(year: Int, lang: ReportLang) {
+        viewModelScope.launch { _report.value = ReportBuilder.build(c.repo.allForYear(year), year, lang) }
+    }
+
+    fun closeReport() { _report.value = null; _reportShare.value = ReportShareUi.Idle }
+
+    /**
+     * Editors and Admins: creates the report as a new Google Sheet owned by the person who shares it, then shares it with everyone on the app's Users list
+     * (Viewers can view it, Editors and Admins can edit it), the same rule as the committee's own Sheet.
+     */
+    fun shareReportWithGoogle() {
+        val rep = _report.value ?: return
+        if (!canEdit.value || _reportShare.value is ReportShareUi.Working) return
+        viewModelScope.launch {
+            _reportShare.value = ReportShareUi.Working
+            _reportShare.value = try {
+                val p = c.settings.current()
+                val created = c.reportPublisher(p).create(rep)
+                val users = Access.normalized(c.gateway(p).readUsers().orEmpty())
+                val shared = SheetSharingService.reconcile(c.fileSharing(p, created.id), users, emptyList(), keep = listOf(p.email))
+                ReportShareUi.Done(created.url, shared.lines())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ReportShareUi.Failed(reportFriendly(e))
+            }
+        }
+    }
+
+    fun dismissReportShare() { _reportShare.value = ReportShareUi.Idle }
+
+    private fun reportFriendly(e: Throwable): String = when {
+        e is AuthException -> (e.message ?: "Sign-in problem.") + " The report was not shared."
+        e is SheetsApiException && e.isForbidden && (e.message.orEmpty().contains("has not been used", true) || e.message.orEmpty().contains("disabled", true)) ->
+            "The Google Sheets or Google Drive API is switched off for this app's Google Cloud project. Turn both on (APIs & Services, Library) and try again."
+        e is SheetsApiException && e.isForbidden -> "Google would not let this account create the report Sheet. Try signing out and in again."
+        e is IOException -> "No internet connection. Try again when you are online."
+        else -> e.message ?: "Something went wrong while creating the Google Sheet."
     }
 
     fun sheetUrl(): String? = prefs.value?.takeIf { !it.demo && it.spreadsheetId.isNotEmpty() }

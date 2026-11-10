@@ -30,8 +30,9 @@ Kotlin, Jetpack Compose (Material 3), Room, Google Sign-In (Credential Manager +
 
 * **Donations**: categories Youth, Villagers, Children, Other villagers, Annadhanam. Donor name, details (village, parent...),
   amount, **collected by**, date. A donation with no collector is "not collected yet". Gifts in kind can have amount 0.
-* **Expenditure**: categories Pooja, Annadhanam. Item, quantity/notes, amount, **paid by**, date (editable).
+* **Expenditure**: categories Pooja, Annadhanam. Item, quantity/notes, amount, **paid by**, date (editable). **A return can be entered as a negative amount** (-1610, or the "Return / refund" chip): it reduces what was spent and shows as +₹1,610 in green. Only Expenditure can be negative.
 * **Other income**: name, description, amount, collected by.
+* **Annual report** (More, Reports, Generate report): the year's collections, expenses and surplus laid out like the committee's Excel workbook (Youth, Villagers, Children, Outsiders, Dakshina, Annadhanam and pooja lists, and an ABSTRACT), in Telugu or English. View it in the app, **download it as Excel** (share it on WhatsApp from the Android share sheet), or, as an Editor or Admin, **share it with Google**: a new Google Sheet is created and shared with everyone on the Users list (Viewers can view it, Editors and Admins can edit it). The block about last year's balance and interest is not included.
 * **People** screen: how much each person collected, how much they spent, and the difference, plus what is still to collect.
 * **Filters**: on every list, filter by who collected (or paid), "Not collected", category, month and text. The total at the top
   follows the filter, so choosing your name shows what you collected.
@@ -121,7 +122,7 @@ Only emails listed on the Sheet's **`Users`** tab (`Name | Email | Role`) can ge
 | Role | Can do |
 |---|---|
 | **Viewer** | Look at everything; cannot add, change or delete anything |
-| **Editor** | Everything a Viewer can, plus add and edit records and contacts, and import. Cannot see the Users page |
+| **Editor** | Everything a Viewer can, plus add and edit records and contacts, import, and share the annual report with Google. Cannot see the Users page |
 | **Admin** | Everything an Editor can, plus the **Users** page (More → Users) to add, re-role and remove people |
 
 * `lakshmana5296@gmail.com` is **hard coded as the default Admin** (`DEFAULT_ADMIN_EMAIL` in `data/Access.kt`). It works on a blank Sheet,

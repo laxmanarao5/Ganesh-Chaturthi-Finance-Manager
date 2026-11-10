@@ -16,6 +16,9 @@ import com.vinayaka.finance.data.sheets.FakeSheetGateway
 import com.vinayaka.finance.data.sheets.GoogleHttp
 import com.vinayaka.finance.data.sheets.GoogleSheetsGateway
 import com.vinayaka.finance.data.sync.SheetGateway
+import com.vinayaka.finance.report.FakeReportPublisher
+import com.vinayaka.finance.report.GoogleReports
+import com.vinayaka.finance.report.ReportPublisher
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.create(context)
@@ -36,6 +39,17 @@ class AppContainer(context: Context) {
     /** Sharing of the Google Sheet itself. Asks for Drive access only when an admin actually changes it. */
     fun sharing(p: Prefs): SheetSharing =
         if (p.demo) demoSharing else DriveSharing(p.spreadsheetId, GoogleHttp({ auth.accessToken(p.email, drive = true) }))
+
+    private val demoReports = FakeReportPublisher()
+    private val demoReportSharing = FakeSharing()
+
+    /** Creates the annual report as a new Google Sheet. The token carries the Drive scope too, so the same sign-in lets the admin share it. */
+    fun reportPublisher(p: Prefs): ReportPublisher =
+        if (p.demo) demoReports else GoogleReports(GoogleHttp({ auth.accessToken(p.email, drive = true) }))
+
+    /** Sharing of a report Sheet that was just created (a different file from the committee's Sheet). */
+    fun fileSharing(p: Prefs, fileId: String): SheetSharing =
+        if (p.demo) demoReportSharing else DriveSharing(fileId, GoogleHttp({ auth.accessToken(p.email, drive = true) }))
 }
 
 class VinayakaApp : Application() {

@@ -81,6 +81,7 @@ import com.vinayaka.finance.ui.screens.MoreScreen
 import com.vinayaka.finance.ui.screens.NoAccessScreen
 import com.vinayaka.finance.ui.screens.UsersScreen
 import com.vinayaka.finance.ui.screens.PeopleScreen
+import com.vinayaka.finance.ui.screens.ReportScreen
 import com.vinayaka.finance.ui.screens.ReportsScreen
 import com.vinayaka.finance.ui.screens.SyncScreen
 import com.vinayaka.finance.ui.screens.WelcomeScreen
@@ -125,7 +126,7 @@ private val tabs = listOf(
 private val titles = mapOf(
     "home" to "Vinayaka Finance", "donations" to "Donations", "expenses" to "Expenditure", "people" to "Collected vs spent",
     "others" to "Other income", "contacts" to "Contacts", "more" to "More", "reports" to "Reports", "sync" to "Sync & data",
-    "users" to "Users", "import" to "Import",
+    "users" to "Users", "import" to "Import", "report" to "Annual report",
 )
 
 private fun NavController.goTab(route: String) = navigate(route) {
@@ -194,7 +195,8 @@ private fun MainScaffold(vm: AppViewModel, prefs: Prefs) {
             composable("others") { EntryListScreen(vm, EntryType.OTHER) }
             composable("contacts") { ContactsScreen(vm) }
             composable("more") { MoreScreen(vm, prefs, nav) }
-            composable("reports") { ReportsScreen(vm) }
+            composable("reports") { ReportsScreen(vm, onOpenReport = { nav.navigate("report") }) }
+            composable("report") { ReportScreen(vm) }
             composable("sync") { SyncScreen(vm, prefs) }
             composable("users") { UsersScreen(vm) }
             composable("import") { ImportScreen(vm) }

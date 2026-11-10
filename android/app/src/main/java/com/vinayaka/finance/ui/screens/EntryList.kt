@@ -66,6 +66,7 @@ import com.vinayaka.finance.util.monthNames
 import com.vinayaka.finance.util.monthOf
 import com.vinayaka.finance.util.paiseToInput
 import com.vinayaka.finance.util.parseAmountToPaise
+import com.vinayaka.finance.util.parseSignedAmountToPaise
 import com.vinayaka.finance.util.prettyDay
 import java.time.LocalDate
 
@@ -249,11 +250,12 @@ fun EntryListScreen(vm: AppViewModel, type: EntryType) {
     }
 }
 
-/** Keep digits and at most one point with two decimals. */
-private fun cleanAmount(input: String): String {
+/** Keep digits and at most one point with two decimals; a leading minus survives only when [allowNegative] (Expenditure returns). */
+private fun cleanAmount(input: String, allowNegative: Boolean = false): String {
     val sb = StringBuilder()
     var seenDot = false
     var decimals = 0
+    if (allowNegative && (input.startsWith("-") || input.startsWith("−"))) sb.append('-')
     for (ch in input) {
         when {
             ch.isDigit() -> { if (!seenDot || decimals < 2) { sb.append(ch); if (seenDot) decimals++ } }
@@ -287,9 +289,11 @@ fun EntryEditorSheet(
     var description by remember { mutableStateOf(existing?.description.orEmpty()) }
     var amountText by remember { mutableStateOf(existing?.amount?.let { paiseToInput(it) }.orEmpty()) }
     var person by remember { mutableStateOf(existing?.person ?: defaultPerson) }
-    val amount = parseAmountToPaise(amountText)
+    val canReturn = type == EntryType.EXPENDITURE   // only spending can be negative: something taken back to the shop
+    val amount = if (canReturn) parseSignedAmountToPaise(amountText) else parseAmountToPaise(amountText)
     val inKind = type == EntryType.DONATION && description.isNotBlank()
-    val valid = name.isNotBlank() && amount != null && (amount > 0 || (amount == 0L && inKind))
+    val valid = name.isNotBlank() && amount != null &&
+        (if (canReturn) amount != 0L else amount > 0 || (amount == 0L && inKind))
     val options = remember(existing) { (type.categories + listOfNotNull(existing?.category?.takeIf { it.isNotBlank() })).distinct() }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -307,12 +311,25 @@ fun EntryEditorSheet(
                 maxLines = 3, modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
-                value = amountText, onValueChange = { amountText = cleanAmount(it) },
+                value = amountText, onValueChange = { amountText = cleanAmount(it, canReturn) },
                 label = { Text("Amount") }, prefix = { Text("₹ ") }, singleLine = true,
-                supportingText = if (type == EntryType.DONATION) ({ Text("Leave 0 for a gift in kind (add what it is above)") }) else null,
+                supportingText = when (type) {
+                    EntryType.DONATION -> ({ Text("Leave 0 for a gift in kind (add what it is above)") })
+                    EntryType.EXPENDITURE -> ({ Text("For something returned, use a negative amount (-1610); it shows as +1610 in green") })
+                    else -> null
+                },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (canReturn) {
+                // Many phone keyboards have no minus key on the number pad, so this chip adds or removes it.
+                val isReturn = amountText.startsWith("-")
+                FilterChip(
+                    selected = isReturn,
+                    onClick = { amountText = if (isReturn) amountText.removePrefix("-") else "-$amountText" },
+                    label = { Text("Return / refund (money back)") },
+                )
+            }
             if (options.isNotEmpty()) {
                 Text("Category", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
